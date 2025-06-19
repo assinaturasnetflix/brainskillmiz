@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="pt-MZ">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainSkill - Dashboard | Lobby</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding-bottom: 60px; /* Espaço para a bottom bar */
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        /* Removendo a antiga header */
+        .header {
+            display: none; /* Oculta a header original */
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 20px auto;
+            flex-direction: row; /* Padrão para desktop */
+        }
+        .sidebar {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            width: 250px;
+            flex-shrink: 0;
+        }
+        .sidebar h3 {
+            color: #4CAF50;
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sidebar ul li {
+            margin-bottom: 10px;
+        }
+        .sidebar ul li a {
+            display: block;
+            padding: 10px 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            text-decoration: none;
+            color: #333;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .sidebar ul li a:hover {
+            background-color: #e6ffe6;
+            color: #4CAF50;
+        }
+        .lobby-section {
+            flex-grow: 1;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .lobby-section h3 {
+            color: #4CAF50;
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .create-bet-form {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .create-bet-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .create-bet-form input[type="number"],
+        .create-bet-form textarea {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .create-bet-form button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .create-bet-form button:hover {
+            background-color: #0056b3;
+        }
+        .lobby-list .bet-item {
+            display: flex;
+            align-items: center;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+        }
+        .bet-item .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 15px;
+            border: 2px solid #4CAF50;
+        }
+        .bet-item .bet-info {
+            flex-grow: 1;
+        }
+        .bet-item .bet-info p {
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        .bet-item .bet-info .creator-name {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .bet-item .bet-info .bet-amount {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-top: 5px;
+        }
+        .bet-item .bet-info .bet-message {
+            font-style: italic;
+            color: #555;
+            font-size: 0.95em;
+            margin-top: 5px;
+        }
+        .bet-item .play-button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .bet-item .play-button:hover {
+            background-color: #218838;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        /* --- Bottom Bar Styles --- */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 60px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .bottom-bar a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            flex: 1;
+            text-align: center;
+            padding: 5px 0;
+        }
+        .bottom-bar a:hover {
+            background-color: #45a049;
+        }
+        .bottom-bar a.active {
+            background-color: #3e8e41; /* Cor para o item ativo */
+        }
+        .bottom-bar i {
+            font-size: 24px; /* Tamanho do ícone, se estiver usando Font Awesome ou similar */
+            margin-bottom: 3px;
+        }
+
+        /* --- Responsividade --- */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column; /* Colunas em telas pequenas */
+                padding: 15px;
+                margin: 15px auto;
+            }
+            .sidebar {
+                width: 100%; /* Sidebar ocupa toda a largura */
+                margin-bottom: 20px;
+            }
+            .header {
+                display: none; /* Garante que a navbar desktop esteja oculta */
+            }
+            .bottom-bar {
+                display: flex; /* Exibe a bottom bar */
+            }
+            body {
+                padding-bottom: 60px; /* Ajusta o padding do body para a bottom bar */
+            }
+        }
+
+        @media (min-width: 769px) {
+            .header {
+                /* Se quiser reativar a navbar desktop, defina display: flex; aqui */
+                background-color: #4CAF50;
+                color: white;
+                padding: 15px 20px;
+                display: flex; /* Reativa para desktop */
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 24px;
+            }
+            .header nav a {
+                color: white;
+                text-decoration: none;
+                margin-left: 20px;
+                font-weight: bold;
+                transition: color 0.3s ease;
+            }
+            .header nav a:hover {
+                color: #d4edda;
+            }
+            .bottom-bar {
+                display: none; /* Oculta a bottom bar em desktop */
+            }
+            body {
+                padding-bottom: 0; /* Remove padding para desktop */
+            }
+        }
+    </style>
+    </head>
+<body>
+    <div class="header">
+        <h1>BrainSkill</h1>
+        <nav>
+            <a href="dashboard.html">Lobby</a>
+            <a href="profile.html">Perfil</a>
+            <a href="transactions.html">Transações</a>
+            <a href="game-history.html">Histórico de Jogos</a>
+            <a href="ranking.html">Ranking</a>
+            <a href="#" id="logoutBtnDesktop">Sair</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <aside class="sidebar">
+            <h3>Navegação Rápida</h3>
+            <ul>
+                <li><a href="profile.html">Meu Perfil</a></li>
+                <li><a href="transactions.html">Depósitos e Levantamentos</a></li>
+                <li><a href="game-history.html">Minhas Partidas</a></li>
+                <li><a href="ranking.html">Ranking de Jogadores</a></li>
+            </ul>
+        </aside>
+
+        <section class="lobby-section">
+            <h3>Criar Nova Aposta</h3>
+            <form id="createBetForm" class="create-bet-form">
+                <div class="form-group">
+                    <label for="betAmount">Valor da Aposta (MT):</label>
+                    <input type="number" id="betAmount" name="betAmount" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="betMessage">Mensagem da Aposta (opcional):</label>
+                    <textarea id="betMessage" name="betMessage" maxlength="100" rows="2" placeholder="Ex: 'Partida rápida!' ou 'Dama Brasileira, aposte!'"></textarea>
+                </div>
+                <button type="submit">Criar Aposta</button>
+            </form>
+            <div id="createBetMessage" class="message"></div>
+
+            <h3>Apostas Ativas no Lobby</h3>
+            <div id="lobbyList" class="lobby-list">
+                <p>Carregando apostas...</p>
+                </div>
+            <div id="lobbyMessage" class="message"></div>
+        </section>
+    </div>
+
+    <div class="bottom-bar">
+        <a href="dashboard.html" class="active">
+            Lobby
+        </a>
+        <a href="profile.html">
+            Perfil
+        </a>
+        <a href="transactions.html">
+            Transações
+        </a>
+        <a href="game-history.html">
+            Jogos
+        </a>
+        <a href="#" id="logoutBtnMobile">
+            Sair
+        </a>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const backendUrl = 'https://brainskillmiz23.onrender.com';
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user'));
+        const socket = io(backendUrl);
+
+        const lobbyListDiv = document.getElementById('lobbyList');
+        const createBetForm = document.getElementById('createBetForm');
+        const createBetMessageDiv = document.getElementById('createBetMessage');
+        const lobbyMessageDiv = document.getElementById('lobbyMessage');
+        const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
+        const logoutBtnMobile = document.getElementById('logoutBtnMobile');
+
+        if (!token || !user) {
+            window.location.href = 'index.html';
+        }
+
+        const showMessage = (element, msg, type) => {
+            element.textContent = msg;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+            setTimeout(() => { element.style.display = 'none'; }, 5000);
+        };
+
+        const fetchLobbyBets = async () => {
+            try {
+                lobbyListDiv.innerHTML = '<p>Carregando apostas...</p>';
+                const response = await fetch(`${backendUrl}/api/lobby`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayLobbyBets(data.lobbies);
+                } else {
+                    showMessage(lobbyMessageDiv, data.message || 'Erro ao carregar apostas do lobby.', 'error');
+                    lobbyListDiv.innerHTML = '<p>Não foi possível carregar as apostas.</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao buscar apostas do lobby:', error);
+                showMessage(lobbyMessageDiv, 'Erro de conexão ao buscar apostas. Tente novamente.', 'error');
+                lobbyListDiv.innerHTML = '<p>Erro ao conectar com o servidor.</p>';
+            }
+        };
+
+        const displayLobbyBets = (lobbies) => {
+            lobbyListDiv.innerHTML = '';
+            if (lobbies.length === 0) {
+                lobbyListDiv.innerHTML = '<p>Nenhuma aposta ativa no momento. Seja o primeiro a criar uma!</p>';
+                return;
+            }
+
+            lobbies.forEach(lobby => {
+                const betItem = document.createElement('div');
+                betItem.className = 'bet-item';
+                
+                const creatorAvatar = lobby.creator && lobby.creator.avatar ? lobby.creator.avatar : 'https://res.cloudinary.com/your-cloud-name/image/upload/v1/default_avatar.png';
+                const creatorName = lobby.creator ? lobby.creator.username : 'Usuário Desconhecido';
+
+                betItem.innerHTML = `
+                    <img src="${creatorAvatar}" alt="Avatar de ${creatorName}" class="avatar">
+                    <div class="bet-info">
+                        <p><span class="creator-name">${creatorName}</span> apostou</p>
+                        <p class="bet-amount">${lobby.betAmount} MT</p>
+                        ${lobby.message ? `<p class="bet-message">"${lobby.message}"</p>` : ''}
+                    </div>
+                    ${String(lobby.creator._id) !== String(user.id) ? `<button class="play-button" data-lobby-id="${lobby._id}">Jogar</button>` : ''}
+                `;
+                lobbyListDiv.appendChild(betItem);
+            });
+
+            document.querySelectorAll('.play-button').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const lobbyId = e.target.dataset.lobbyId;
+                    try {
+                        const response = await fetch(`${backendUrl}/api/lobby/${lobbyId}/join`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            showMessage(lobbyMessageDiv, data.message, 'success');
+                            localStorage.setItem('currentGameId', data.gameId);
+                            // Redirecionar para a página do jogo e entrar na sala via WebSocket
+                            setTimeout(() => {
+                                window.location.href = 'game.html';
+                            }, 1000);
+                        } else {
+                            showMessage(lobbyMessageDiv, data.message || 'Erro ao aceitar aposta.', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Erro ao aceitar aposta:', error);
+                        showMessage(lobbyMessageDiv, 'Erro de conexão ao aceitar aposta.', 'error');
+                    }
+                });
+            });
+        };
+
+        createBetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const betAmount = document.getElementById('betAmount').value;
+            const betMessage = document.getElementById('betMessage').value;
+
+            if (betAmount <= 0) {
+                showMessage(createBetMessageDiv, 'O valor da aposta deve ser positivo.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${backendUrl}/api/lobby/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ betAmount: parseFloat(betAmount), message: betMessage })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(createBetMessageDiv, data.message, 'success');
+                    createBetForm.reset();
+                    fetchLobbyBets();
+                } else {
+                    showMessage(createBetMessageDiv, data.message || 'Erro ao criar aposta.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao criar aposta:', error);
+                showMessage(createBetMessageDiv, 'Erro de conexão ao criar aposta.', 'error');
+            }
+        });
+
+        // Lógica de Logout para ambos os botões
+        const handleLogout = (e) => {
+            e.preventDefault();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('currentGameId');
+            window.location.href = 'index.html';
+        };
+        if (logoutBtnDesktop) logoutBtnDesktop.addEventListener('click', handleLogout);
+        if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', handleLogout);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchLobbyBets();
+            socket.emit('joinLobby');
+        });
+
+        socket.on('lobbyUpdate', () => {
+            console.log('Recebida atualização do lobby via WebSocket. Recarregando apostas...');
+            fetchLobbyBets();
+        });
+
+        socket.on('gameStarted', (data) => {
+            // Verifica se o usuário logado é um dos jogadores da partida
+            const isPlayerInGame = data.players.some(p => String(p.id) === String(user.id));
+            if (isPlayerInGame) {
+                localStorage.setItem('currentGameId', data.gameId);
+                window.location.href = 'game.html';
+            }
+        });
+    </script>
+</body>
+</html>

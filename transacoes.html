@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transações - Damas Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <div id="app-container" class="min-h-screen">
+        
+        <nav class="bg-gray-800/50 backdrop-blur-sm shadow-lg p-4 sticky top-0 z-50">
+            <div class="container mx-auto flex justify-between items-center">
+                <a href="dashboard.html" class="text-2xl font-bold text-orange-500">Damas Online</a>
+                <div class="flex items-center space-x-4">
+                    <a href="loja.html" class="text-gray-300 hover:text-orange-400">Loja</a>
+                    <a href="ranking.html" class="text-gray-300 hover:text-orange-400">Ranking</a>
+                    <div class="relative">
+                        <button id="user-menu-button" class="flex items-center space-x-2">
+                            <span id="username-nav" class="font-semibold">...</span>
+                            <img id="avatar-nav" src="https://via.placeholder.com/40" alt="Avatar" class="w-10 h-10 rounded-full border-2 border-orange-500 object-cover">
+                        </button>
+                        <div id="user-menu" class="hidden absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-xl z-20 border border-gray-700">
+                            <a href="perfil.html" class="block px-4 py-2 text-sm text-gray-300 hover:bg-orange-600 hover:text-white">Meu Perfil</a>
+                            <button id="logout-button" class="w-full text-left block px-4 py-2 text-sm text-gray-300 hover:bg-red-600 hover:text-white">Sair</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="container mx-auto p-4 md:p-8">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-white">Minha Carteira</h1>
+                <div class="mt-4 inline-block bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-sm font-bold text-orange-400 uppercase tracking-wider">Saldo Atual</h3>
+                    <p id="balance-display" class="text-3xl font-mono font-bold mt-1">--</p>
+                </div>
+            </header>
+
+            <div id="message-display" class="mb-6 text-center text-sm min-h-[20px]"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <section id="deposito" class="bg-gray-800 p-8 rounded-lg shadow-lg border border-gray-700">
+                    <h2 class="text-2xl font-bold text-orange-400 mb-4">Depositar Saldo (Recarga)</h2>
+                    <p class="text-sm text-gray-400 mb-4">
+                        1. Envie o valor desejado para um dos números abaixo via M-Pesa ou e-Mola.
+                    </p>
+                    <div class="mb-6 bg-gray-900 p-4 rounded-md">
+                        <p><strong>M-Pesa:</strong> +258 84 123 4567</p>
+                        <p><strong>e-Mola:</strong> +258 86 123 4567</p>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-4">
+                        2. Após a transferência, preencha o formulário abaixo com os detalhes exatos para creditarmos sua conta.
+                    </p>
+                    <form id="recharge-form">
+                        <div class="mb-4">
+                            <label for="recharge-amount" class="block text-sm font-bold mb-2">Valor Depositado (MZN)</label>
+                            <input type="number" id="recharge-amount" required min="50" class="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        <div class="mb-4">
+                            <label for="recharge-tid" class="block text-sm font-bold mb-2">ID da Transação</label>
+                            <input type="text" id="recharge-tid" required placeholder="Ex: QF45RTD78" class="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        <div class="mb-6">
+                            <label for="recharge-method" class="block text-sm font-bold mb-2">Método de Pagamento</label>
+                            <select id="recharge-method" required class="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                <option value="M-Pesa">M-Pesa</option>
+                                <option value="e-Mola">e-Mola</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded">Registrar Depósito</button>
+                    </form>
+                </section>
+
+                <section id="levantamento" class="bg-gray-800 p-8 rounded-lg shadow-lg border border-gray-700">
+                    <h2 class="text-2xl font-bold text-green-400 mb-4">Levantar Saldo (Saque)</h2>
+                    <p class="text-sm text-gray-400 mb-6">Solicite um levantamento do seu saldo. O valor será enviado para o número que você fornecer. O processamento é manual e pode levar algumas horas.</p>
+                    <form id="withdrawal-form">
+                        <div class="mb-4">
+                            <label for="withdraw-amount" class="block text-sm font-bold mb-2">Valor a Levantar (MZN)</label>
+                            <input type="number" id="withdraw-amount" required min="100" class="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div class="mb-4">
+                            <label for="withdraw-number" class="block text-sm font-bold mb-2">Seu Número (M-Pesa / e-Mola)</label>
+                            <input type="tel" id="withdraw-number" required placeholder="841234567" class="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div class="mb-6">
+                            <label for="withdraw-method" class="block text-sm font-bold mb-2">Enviar para</label>
+                            <select id="withdraw-method" required class="w-full px-3 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="M-Pesa">M-Pesa</option>
+                                <option value="e-Mola">e-Mola</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Solicitar Saque</button>
+                    </form>
+                </section>
+            </div>
+
+        </main>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('authToken');
+        if (!token) window.location.href = 'login.html';
+
+        const API_BASE_URL = 'https://dama-tuz5.onrender.com';
+        let currentUserProfile = null;
+
+        const usernameNav = document.getElementById('username-nav');
+        const avatarNav = document.getElementById('avatar-nav');
+        const balanceDisplay = document.getElementById('balance-display');
+        const messageDisplay = document.getElementById('message-display');
+        
+        const rechargeForm = document.getElementById('recharge-form');
+        const withdrawalForm = document.getElementById('withdrawal-form');
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInitialData();
+            setupEventListeners();
+        });
+
+        async function loadInitialData() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/profile/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!response.ok) throw new Error('Sessão inválida.');
+                currentUserProfile = await response.json();
+                updateNavUI(currentUserProfile);
+                updateBalanceUI(currentUserProfile.balance);
+            } catch (error) {
+                localStorage.removeItem('authToken');
+                window.location.href = 'login.html';
+            }
+        }
+        
+        function updateNavUI(profile) {
+            usernameNav.textContent = profile.username;
+            avatarNav.src = profile.avatar?.url || 'https://via.placeholder.com/40';
+        }
+        function updateBalanceUI(newBalance) {
+            currentUserProfile.balance = newBalance;
+            balanceDisplay.textContent = newBalance.toLocaleString('pt-MZ') + ' MZN';
+            document.getElementById('withdraw-amount').max = newBalance; // Atualiza o valor máximo para saque
+        }
+        
+        function showMessage(message, type = 'success') {
+            messageDisplay.textContent = message;
+            messageDisplay.className = type === 'error' 
+                ? 'p-2 rounded-md bg-red-500/20 text-red-400 text-center text-sm mb-6' 
+                : 'p-2 rounded-md bg-green-500/20 text-green-400 text-center text-sm mb-6';
+        }
+
+        function setupEventListeners() {
+            document.getElementById('user-menu-button').addEventListener('click', () => document.getElementById('user-menu').classList.toggle('hidden'));
+            document.getElementById('logout-button').addEventListener('click', () => {
+                localStorage.removeItem('authToken');
+                window.location.href = 'login.html';
+            });
+            
+            rechargeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const button = e.target.querySelector('button');
+                button.disabled = true;
+                button.textContent = 'Enviando...';
+
+                const formData = {
+                    amount: document.getElementById('recharge-amount').value,
+                    transactionId: document.getElementById('recharge-tid').value,
+                    paymentMethod: document.getElementById('recharge-method').value,
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/payments/recharge-request`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message);
+                    showMessage('Pedido de recarga enviado com sucesso! Aguarde a aprovação do admin.');
+                    rechargeForm.reset();
+                } catch (error) { showMessage(error.message, 'error'); }
+                finally { button.disabled = false; button.textContent = 'Registrar Depósito'; }
+            });
+
+            withdrawalForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const button = e.target.querySelector('button');
+                const amount = parseInt(document.getElementById('withdraw-amount').value, 10);
+                
+                if (amount > currentUserProfile.balance) {
+                    return showMessage('O valor do saque não pode ser maior que seu saldo atual.', 'error');
+                }
+
+                button.disabled = true;
+                button.textContent = 'Processando...';
+                
+                const formData = {
+                    amount: amount,
+                    userPaymentDetails: document.getElementById('withdraw-number').value,
+                    paymentMethod: document.getElementById('withdraw-method').value,
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/payments/withdraw-request`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message);
+                    showMessage(data.message);
+                    updateBalanceUI(data.newBalance);
+                    withdrawalForm.reset();
+                } catch (error) { showMessage(error.message, 'error'); }
+                finally { button.disabled = false; button.textContent = 'Solicitar Saque'; }
+            });
+        }
+    </script>
+</body>
+</html>

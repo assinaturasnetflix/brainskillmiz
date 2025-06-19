@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pt-MZ">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainSkill - Meu Perfil</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding-bottom: 60px; /* Espaço para a bottom bar */
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .header {
+            display: none; /* Oculta a header original */
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            display: flex;
+            justify-content: center; /* Centraliza o conteúdo */
+            align-items: flex-start; /* Alinha ao topo */
+            max-width: 800px;
+            margin: 20px auto;
+            flex-direction: column; /* Em colunas para centralizar mais facilmente */
+        }
+        
+        .profile-section {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px; /* Largura máxima para a seção de perfil */
+            margin: 0 auto; /* Centraliza a seção */
+        }
+        .profile-section h3 {
+            color: #4CAF50;
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #4CAF50;
+            margin-bottom: 15px;
+        }
+        .profile-info p {
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        .profile-info p strong {
+            color: #555;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .upload-avatar-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: center;
+        }
+        .upload-avatar-section input[type="file"] {
+            display: block;
+            margin: 15px auto;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+            text-align: center;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        
+        /* Bottom Bar Styles (repetido para clareza em arquivo único) */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 60px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .bottom-bar a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            flex: 1;
+            text-align: center;
+            padding: 5px 0;
+        }
+        .bottom-bar a:hover {
+            background-color: #45a049;
+        }
+        .bottom-bar a.active {
+            background-color: #3e8e41; /* Cor para o item ativo */
+        }
+        .bottom-bar i {
+            font-size: 24px;
+            margin-bottom: 3px;
+        }
+
+        /* Responsividade para desktop */
+        @media (min-width: 769px) {
+            .header {
+                background-color: #4CAF50;
+                color: white;
+                padding: 15px 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 24px;
+            }
+            .header nav a {
+                color: white;
+                text-decoration: none;
+                margin-left: 20px;
+                font-weight: bold;
+                transition: color 0.3s ease;
+            }
+            .header nav a:hover {
+                color: #d4edda;
+            }
+            .bottom-bar {
+                display: none; /* Oculta a bottom bar em desktop */
+            }
+            body {
+                padding-bottom: 0; /* Remove padding para desktop */
+            }
+            .main-content {
+                flex-direction: row; /* Volta para linha em desktop */
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BrainSkill</h1>
+        <nav>
+            <a href="dashboard.html">Lobby</a>
+            <a href="profile.html">Perfil</a>
+            <a href="transactions.html">Transações</a>
+            <a href="game-history.html">Histórico de Jogos</a>
+            <a href="ranking.html">Ranking</a>
+            <a href="#" id="logoutBtnDesktop">Sair</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <section class="profile-section">
+            <h3>Meu Perfil</h3>
+
+            <div class="profile-info">
+                <img id="profileAvatar" src="https://res.cloudinary.com/your-cloud-name/image/upload/v1/default_avatar.png" alt="Avatar do Usuário" class="profile-avatar">
+                <p><strong>Nome de Usuário:</strong> <span id="profileUsername">Carregando...</span></p>
+                <p><strong>Email:</strong> <span id="profileEmail">Carregando...</span></p>
+                <p><strong>Membro Desde:</strong> <span id="profileCreatedAt">Carregando...</span></p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+
+            <h3>Editar Perfil</h3>
+            <form id="editProfileForm">
+                <div class="form-group">
+                    <label for="newUsername">Novo Nome de Usuário:</label>
+                    <input type="text" id="newUsername" name="newUsername">
+                </div>
+                <div class="form-group">
+                    <label for="newEmail">Novo Email:</label>
+                    <input type="email" id="newEmail" name="newEmail">
+                </div>
+                <div class="form-group">
+                    <label for="oldPassword">Senha Antiga:</label>
+                    <input type="password" id="oldPassword" name="oldPassword">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">Nova Senha:</label>
+                    <input type="password" id="newPassword" name="newPassword">
+                </div>
+                <button type="submit">Salvar Alterações</button>
+            </form>
+            <div id="editProfileMessage" class="message"></div>
+
+            <div class="upload-avatar-section">
+                <h3>Alterar Avatar</h3>
+                <input type="file" id="avatarUpload" accept="image/*">
+                <button id="uploadAvatarBtn">Carregar Avatar</button>
+                <div id="avatarUploadMessage" class="message"></div>
+            </div>
+        </section>
+    </div>
+
+    <div class="bottom-bar">
+        <a href="dashboard.html">
+            Lobby
+        </a>
+        <a href="profile.html" class="active">
+            Perfil
+        </a>
+        <a href="transactions.html">
+            Transações
+        </a>
+        <a href="game-history.html">
+            Jogos
+        </a>
+        <a href="#" id="logoutBtnMobile">
+            Sair
+        </a>
+    </div>
+
+    <script>
+        const backendUrl = 'https://brainskillmiz23.onrender.com';
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user'));
+
+        // Elementos de exibição do perfil
+        const profileAvatar = document.getElementById('profileAvatar');
+        const profileUsername = document.getElementById('profileUsername');
+        const profileEmail = document.getElementById('profileEmail');
+        const profileCreatedAt = document.getElementById('profileCreatedAt');
+
+        // Elementos do formulário de edição
+        const editProfileForm = document.getElementById('editProfileForm');
+        const newUsernameInput = document.getElementById('newUsername');
+        const newEmailInput = document.getElementById('newEmail');
+        const oldPasswordInput = document.getElementById('oldPassword');
+        const newPasswordInput = document.getElementById('newPassword');
+        const editProfileMessageDiv = document.getElementById('editProfileMessage');
+
+        // Elementos de upload de avatar
+        const avatarUploadInput = document.getElementById('avatarUpload');
+        const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
+        const avatarUploadMessageDiv = document.getElementById('avatarUploadMessage');
+
+        // Botões de logout
+        const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
+        const logoutBtnMobile = document.getElementById('logoutBtnMobile');
+
+        // Redireciona se não houver token ou usuário logado
+        if (!token || !user) {
+            window.location.href = 'index.html';
+        }
+
+        const showMessage = (element, msg, type) => {
+            element.textContent = msg;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+            setTimeout(() => { element.style.display = 'none'; }, 5000);
+        };
+
+        const fetchProfile = async () => {
+            try {
+                const response = await fetch(`${backendUrl}/api/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    profileUsername.textContent = data.username;
+                    profileEmail.textContent = data.email;
+                    profileAvatar.src = data.avatar || 'https://res.cloudinary.com/your-cloud-name/image/upload/v1/default_avatar.png'; // Fallback
+                    // Formatar data de criação
+                    const createdAtDate = new Date(data.createdAt);
+                    profileCreatedAt.textContent = createdAtDate.toLocaleDateString('pt-MZ', { year: 'numeric', month: 'long', day: 'numeric' });
+                    
+                    // Preencher campos de edição (opcional, pode ser feito só no foco)
+                    newUsernameInput.value = data.username;
+                    newEmailInput.value = data.email;
+
+                } else {
+                    showMessage(editProfileMessageDiv, data.message || 'Erro ao carregar perfil.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao buscar perfil:', error);
+                showMessage(editProfileMessageDiv, 'Erro de conexão ao carregar perfil. Tente novamente.', 'error');
+            }
+        };
+
+        editProfileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const updatedData = {};
+            if (newUsernameInput.value.trim() !== profileUsername.textContent.trim()) {
+                updatedData.username = newUsernameInput.value.trim();
+            }
+            if (newEmailInput.value.trim() !== profileEmail.textContent.trim()) {
+                updatedData.email = newEmailInput.value.trim();
+            }
+            if (oldPasswordInput.value) {
+                updatedData.oldPassword = oldPasswordInput.value;
+                if (newPasswordInput.value) {
+                    updatedData.newPassword = newPasswordInput.value;
+                } else {
+                    showMessage(editProfileMessageDiv, 'Nova senha é necessária se você fornecer a senha antiga.', 'error');
+                    return;
+                }
+            } else if (newPasswordInput.value) {
+                 showMessage(editProfileMessageDiv, 'Senha antiga é necessária para definir uma nova senha.', 'error');
+                 return;
+            }
+
+            if (Object.keys(updatedData).length === 0) {
+                showMessage(editProfileMessageDiv, 'Nenhuma alteração detectada.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${backendUrl}/api/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updatedData),
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(editProfileMessageDiv, data.message, 'success');
+                    // Atualizar o localStorage e o perfil na tela
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    fetchProfile(); // Recarrega os dados do perfil
+                    oldPasswordInput.value = ''; // Limpa campos de senha
+                    newPasswordInput.value = '';
+                } else {
+                    showMessage(editProfileMessageDiv, data.message || 'Erro ao atualizar perfil.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar perfil:', error);
+                showMessage(editProfileMessageDiv, 'Erro de conexão ao atualizar perfil. Tente novamente.', 'error');
+            }
+        });
+
+        uploadAvatarBtn.addEventListener('click', async () => {
+            if (avatarUploadInput.files.length === 0) {
+                showMessage(avatarUploadMessageDiv, 'Por favor, selecione um arquivo de imagem.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('avatar', avatarUploadInput.files[0]);
+
+            try {
+                const response = await fetch(`${backendUrl}/api/upload-avatar`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData,
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(avatarUploadMessageDiv, data.message, 'success');
+                    profileAvatar.src = data.avatarUrl; // Atualiza o avatar na tela
+                    // Atualizar o avatar no localStorage também
+                    let currentUser = JSON.parse(localStorage.getItem('user'));
+                    currentUser.avatar = data.avatarUrl;
+                    localStorage.setItem('user', JSON.stringify(currentUser));
+                } else {
+                    showMessage(avatarUploadMessageDiv, data.message || 'Erro ao carregar avatar.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao fazer upload do avatar:', error);
+                showMessage(avatarUploadMessageDiv, 'Erro de conexão ao fazer upload do avatar. Tente novamente.', 'error');
+            }
+        });
+
+        const handleLogout = (e) => {
+            e.preventDefault();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('currentGameId');
+            window.location.href = 'index.html';
+        };
+        if (logoutBtnDesktop) logoutBtnDesktop.addEventListener('click', handleLogout);
+        if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', handleLogout);
+
+        document.addEventListener('DOMContentLoaded', fetchProfile);
+    </script>
+</body>
+</html>

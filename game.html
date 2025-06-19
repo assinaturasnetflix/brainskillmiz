@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="pt-MZ">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainSkill - Partida de Damas</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding-bottom: 60px; /* Espaço para a bottom bar */
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            width: 100%; /* Ajuste para preencher a largura */
+            box-sizing: border-box; /* Incluir padding na largura */
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            font-weight: bold;
+            transition: color 0.3s ease;
+        }
+        .header nav a:hover {
+            color: #d4edda;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 900px; /* Largura ajustada para o jogo */
+            margin: 20px auto;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .game-info-card {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .game-info-card h3 {
+            color: #4CAF50;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        .players-display {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .player-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        .player-item img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ccc;
+            margin-bottom: 8px;
+        }
+        .player-item.current-turn img {
+            border-color: #4CAF50; /* Destaca o avatar do jogador da vez */
+        }
+        .player-item p {
+            margin: 0;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .player-item.current-turn p {
+            color: #4CAF50;
+        }
+        .vs-text {
+            font-size: 2em;
+            font-weight: bold;
+            color: #777;
+            margin: 0 15px;
+        }
+        .game-status-message {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .game-status-message.white-wins { color: #4CAF50; }
+        .game-status-message.black-wins { color: #333; }
+        .game-status-message.draw { color: #007bff; }
+
+
+        .board-container {
+            border: 5px solid #4CAF50;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            width: 480px; /* Tamanho fixo para desktop */
+            height: 480px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 100%;
+            height: 100%;
+            background-color: #eee;
+        }
+        .cell {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden; /* Peças animadas ficam dentro da célula */
+        }
+        .cell.dark {
+            background-color: #555;
+        }
+        .cell.light {
+            background-color: #eee;
+        }
+        .piece {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.3s ease-out; /* Animação */
+            z-index: 1;
+        }
+        .piece.white {
+            background-color: #f0f0f0;
+            color: #333;
+            border: 2px solid #ccc;
+        }
+        .piece.black {
+            background-color: #333;
+            color: #f0f0f0;
+            border: 2px solid #000;
+        }
+        .piece.king::after {
+            content: '★';
+            position: absolute;
+            font-size: 0.7em;
+            color: gold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        }
+        .cell.selected {
+            background-color: #ffeb3b;
+            border: 2px solid #ffc107;
+        }
+        .cell.possible-move {
+            background-color: #a7d9b5;
+            border: 2px dashed #4CAF50;
+        }
+        .cell.possible-capture {
+            background-color: #ff9800;
+            border: 2px dashed #e65100;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+            text-align: center;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        .message.info {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border-color: #d6d8db;
+        }
+        
+        /* Bottom Bar Styles */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 60px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .bottom-bar a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            flex: 1;
+            text-align: center;
+            padding: 5px 0;
+        }
+        .bottom-bar a:hover {
+            background-color: #45a049;
+        }
+        .bottom-bar a.active {
+            background-color: #3e8e41;
+        }
+        .bottom-bar i {
+            font-size: 24px;
+            margin-bottom: 3px;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .header {
+                display: none;
+            }
+            .bottom-bar {
+                display: flex;
+            }
+            body {
+                padding-bottom: 60px;
+            }
+            .main-content {
+                padding: 15px;
+                margin: 15px auto;
+                flex-direction: column; /* Em mobile, exibe em coluna */
+            }
+            .board-container {
+                width: 90vw;
+                height: 90vw;
+            }
+            .piece {
+                width: 70%;
+                height: 70%;
+            }
+            .players-display {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .vs-text {
+                margin: 10px 0;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .header {
+                display: flex;
+            }
+            .bottom-bar {
+                display: none;
+            }
+            body {
+                padding-bottom: 0;
+            }
+            .main-content {
+                 flex-direction: row; /* Desktop: lado a lado (info à esquerda, tabuleiro à direita) */
+                 justify-content: center;
+                 align-items: flex-start;
+            }
+            .game-info-card {
+                width: 300px; /* Largura fixa para o card de informações do jogo */
+                flex-shrink: 0; /* Não encolhe */
+                margin-right: 20px; /* Espaço entre info e tabuleiro */
+                margin-bottom: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BrainSkill</h1>
+        <nav>
+            <a href="dashboard.html">Lobby</a>
+            <a href="profile.html">Perfil</a>
+            <a href="transactions.html">Transações</a>
+            <a href="game-history.html">Histórico de Jogos</a>
+            <a href="ranking.html">Ranking</a>
+            <a href="#" id="logoutBtnDesktop">Sair</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <section class="game-info-card">
+            <h3>Partida Atual</h3>
+            <div class="players-display">
+                <div id="player1Info" class="player-item">
+                    <img id="player1Avatar" src="https://res.cloudinary.com/your-cloud-name/image/upload/v1/default_avatar.png" alt="Jogador 1">
+                    <p id="player1Username">Jogador 1</p>
+                    <p>(Brancas)</p>
+                </div>
+                <span class="vs-text">VS</span>
+                <div id="player2Info" class="player-item">
+                    <img id="player2Avatar" src="https://res.cloudinary.com/your-cloud-name/image/upload/v1/default_avatar.png" alt="Jogador 2">
+                    <p id="player2Username">Jogador 2</p>
+                    <p>(Pretas)</p>
+                </div>
+            </div>
+            <p>Aposta: <strong id="betAmountDisplay">0 MT</strong></p>
+            <p id="gameStatusMessage" class="game-status-message">Aguardando início...</p>
+            <div id="gameMessage" class="message"></div>
+            <button id="leaveGameBtn" style="background-color: #dc3545; margin-top: 15px;">Sair da Partida</button>
+        </section>
+
+        <section class="board-container">
+            <div id="checkersBoard" class="board">
+                </div>
+        </section>
+    </div>
+
+    <div class="bottom-bar">
+        <a href="dashboard.html"> Lobby </a>
+        <a href="profile.html"> Perfil </a>
+        <a href="transactions.html"> Transações </a>
+        <a href="game-history.html"> Jogos </a>
+        <a href="#" id="logoutBtnMobile"> Sair </a>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const backendUrl = 'https://brainskillmiz23.onrender.com';
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user'));
+        const currentGameId = localStorage.getItem('currentGameId'); // ID da partida do localStorage
+
+        const socket = io(backendUrl);
+
+        // Elementos de UI
+        const checkersBoardElement = document.getElementById('checkersBoard');
+        const gameMessageDiv = document.getElementById('gameMessage');
+        const gameStatusMessage = document.getElementById('gameStatusMessage');
+        const leaveGameBtn = document.getElementById('leaveGameBtn');
+
+        const player1InfoDiv = document.getElementById('player1Info');
+        const player1Avatar = document.getElementById('player1Avatar');
+        const player1Username = document.getElementById('player1Username');
+        
+        const player2InfoDiv = document.getElementById('player2Info');
+        const player2Avatar = document.getElementById('player2Avatar');
+        const player2Username = document.getElementById('player2Username');
+
+        const betAmountDisplay = document.getElementById('betAmountDisplay');
+
+        const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
+        const logoutBtnMobile = document.getElementById('logoutBtnMobile');
+
+
+        // Variáveis de estado do jogo
+        const BOARD_SIZE = 8;
+        let currentBoardState = [];
+        let selectedPiece = null; // { row, col, element } da peça selecionada
+        let currentPlayerTurnId = null; // ID do usuário que deve jogar
+        let player1 = null; // Objeto com {id, username, avatar} do Player 1 (Brancas)
+        let player2 = null; // Objeto com {id, username, avatar} do Player 2 (Pretas)
+        let localPlayerColor = null; // 'white' or 'black' para o usuário logado
+        let gameStatus = 'pending'; // 'pending', 'in-progress', 'completed', 'cancelled'
+        let currentMandatoryCaptures = []; // Para lidar com multi-capturas
+
+
+        // --- Funções Auxiliares UI ---
+        const showMessage = (element, msg, type) => {
+            element.textContent = msg;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+            setTimeout(() => { element.style.display = 'none'; }, 5000);
+        };
+
+        const updatePlayerInfoUI = () => {
+            if (player1) {
+                player1Avatar.src = player1.avatar || 'https://res.cloudinary.com/your-cloud-name/image/upload/v1/default_avatar.png';
+                player1Username.textContent = player1.username;
+            }
+            if (player2) {
+                player2Avatar.src = player2.avatar || 'https://res.cloudinary.com/your-cloud-name/image/upload/v1/default_avatar.png';
+                player2Username.textContent = player2.username;
+            }
+
+            // Destaca o jogador da vez
+            player1InfoDiv.classList.remove('current-turn');
+            player2InfoDiv.classList.remove('current-turn');
+            if (String(currentPlayerTurnId) === String(player1.id)) {
+                player1InfoDiv.classList.add('current-turn');
+            } else if (String(currentPlayerTurnId) === String(player2.id)) {
+                player2InfoDiv.classList.add('current-turn');
+            }
+
+            // Mensagem de status do jogo
+            switch(gameStatus) {
+                case 'in-progress':
+                    gameStatusMessage.textContent = `É a vez de ${String(currentPlayerTurnId) === String(player1.id) ? player1.username : player2.username}!`;
+                    gameStatusMessage.className = 'game-status-message info';
+                    break;
+                case 'completed':
+                    let winner = player1.id === game.winner ? player1.username : player2.username;
+                    gameStatusMessage.textContent = `Partida Concluída! Vencedor: ${winner}`;
+                    gameStatusMessage.className = `game-status-message ${player1.id === game.winner ? 'white-wins' : 'black-wins'}`;
+                    leaveGameBtn.textContent = 'Voltar para o Lobby';
+                    break;
+                case 'cancelled':
+                    gameStatusMessage.textContent = 'Partida Cancelada.';
+                    gameStatusMessage.className = 'game-status-message error';
+                    leaveGameBtn.textContent = 'Voltar para o Lobby';
+                    break;
+                default:
+                    gameStatusMessage.textContent = 'Aguardando jogadores...';
+                    gameStatusMessage.className = 'game-status-message info';
+                    break;
+            }
+        };
+
+
+        const renderBoard = () => {
+            checkersBoardElement.innerHTML = '';
+            // Determine se o tabuleiro deve ser invertido para o jogador preto
+            const isBoardFlipped = localPlayerColor === 'black';
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    // Mapeia as coordenadas para a exibição (invertendo para o jogador preto)
+                    const displayR = isBoardFlipped ? (BOARD_SIZE - 1 - r) : r;
+                    const displayC = isBoardFlipped ? (BOARD_SIZE - 1 - c) : c;
+
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${((displayR + displayC) % 2 === 0) ? 'light' : 'dark'}`;
+                    cell.dataset.row = r; // Armazena as coordenadas lógicas para a lógica do jogo
+                    cell.dataset.col = c;
+
+                    const pieceType = getPiece(currentBoardState, r, c);
+                    if (pieceType && pieceType !== ' ') {
+                        const pieceElement = document.createElement('div');
+                        pieceElement.className = `piece ${getPieceColor(pieceType)}`;
+                        if (pieceType === 'W' || pieceType === 'B') {
+                            pieceElement.classList.add('king');
+                        }
+                        cell.appendChild(pieceElement);
+                    }
+                    checkersBoardElement.appendChild(cell);
+                }
+            }
+        };
+
+        const highlightPossibleMoves = (moves) => {
+            clearHighlights();
+            if (selectedPiece) {
+                const selectedCell = checkersBoardElement.querySelector(`[data-row="${selectedPiece.row}"][data-col="${selectedPiece.col}"]`);
+                if (selectedCell) {
+                    selectedCell.classList.add('selected');
+                }
+            }
+
+            moves.forEach(move => {
+                const targetCell = checkersBoardElement.querySelector(`[data-row="${move.to.r}"][data-col="${move.to.c}"]`);
+                if (targetCell) {
+                    targetCell.classList.add(move.type === 'capture' ? 'possible-capture' : 'possible-move');
+                }
+            });
+        };
+
+        const clearHighlights = () => {
+            document.querySelectorAll('.cell.selected').forEach(cell => cell.classList.remove('selected'));
+            document.querySelectorAll('.cell.possible-move').forEach(cell => cell.classList.remove('possible-move'));
+            document.querySelectorAll('.cell.possible-capture').forEach(cell => cell.classList.remove('possible-capture'));
+        };
+
+        // --- Funções Auxiliares de Lógica de Jogo (Duplicadas do teste para clareza, mas a validação final é no backend) ---
+        // Estas funções são para *auxiliar a UI* a mostrar movimentos válidos. A lógica SERVER-SIDE é a verdadeira autoridade.
+        const getPiece = (board, r, c) => r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE ? board[r][c] : null;
+        const getPieceColor = (piece) => {
+            if (piece === 'w' || piece === 'W') return 'white';
+            if (piece === 'b' || piece === 'B') return 'black';
+            return null;
+        };
+
+        // Captura e movimento para a lógica de highlight do frontend.
+        // Copiado do 'damas_teste_completo_animacao_simples.html'
+        const findCapturesForPiece = (board, r, c, color, isKing, currentPath = []) => {
+            let capturesFound = [];
+            const opponentColor = color === 'white' ? 'black' : 'white';
+            const possibleJumpDirections = [-1, 1];
+
+            for (const dr of possibleJumpDirections) {
+                for (const dc of [-1, 1]) {
+                    if (isKing) {
+                        for (let step = 1; step < BOARD_SIZE; step++) {
+                            const opponentR = r + dr * step;
+                            const opponentC = c + dc * step;
+                            const landR = r + dr * (step + 1);
+                            const landC = c + dc * (step + 1);
+
+                            if (!isValidPosition(opponentR, opponentC)) break;
+
+                            const opponentPiece = getPiece(board, opponentR, opponentC);
+                            
+                            let pathBlockedBeforeOpponent = false;
+                            for (let i = 1; i < step; i++) {
+                                if (getPiece(board, r + dr * i, c + dc * i) !== ' ') {
+                                    pathBlockedBeforeOpponent = true;
+                                    break;
+                                }
+                            }
+                            if (pathBlockedBeforeOpponent) break;
+
+                            if (getPieceColor(opponentPiece) === opponentColor) {
+                                if (!isValidPosition(landR, landC) || getPiece(board, landR, landC) !== ' ') {
+                                    break;
+                                }
+
+                                const simulatedBoard = JSON.parse(JSON.stringify(board));
+                                simulatedBoard[landR][landC] = simulatedBoard[r][c];
+                                simulatedBoard[r][c] = ' ';
+                                simulatedBoard[opponentR][opponentC] = ' ';
+
+                                const newPath = [...currentPath, { from: { r, c }, to: { r: landR, c: landC }, captured: { r: opponentR, c: opponentC } }];
+
+                                const furtherCaptures = findCapturesForPiece(simulatedBoard, landR, landC, color, isKing, newPath);
+
+                                if (furtherCaptures.length > 0) {
+                                    capturesFound.push(...furtherCaptures);
+                                } else {
+                                    capturesFound.push(newPath);
+                                }
+                                break;
+                            } else if (opponentPiece !== ' ') {
+                                break;
+                            }
+                        }
+                    } else {
+                        const opponentR = r + dr;
+                        const opponentC = c + dc;
+                        const landR = r + 2 * dr;
+                        const landC = c + 2 * dc;
+
+                        if (isValidPosition(opponentR, opponentC) && getPieceColor(getPiece(board, opponentR, opponentC)) === opponentColor &&
+                            isValidPosition(landR, landC) && getPiece(board, landR, landC) === ' ') {
+
+                            const simulatedBoard = JSON.parse(JSON.stringify(board));
+                            simulatedBoard[landR][landC] = simulatedBoard[r][c];
+                            simulatedBoard[r][c] = ' ';
+                            simulatedBoard[opponentR][opponentC] = ' ';
+
+                            const newPath = [...currentPath, { from: { r, c }, to: { r: landR, c: landC }, captured: { r: opponentR, c: opponentC } }];
+
+                            const furtherCaptures = findCapturesForPiece(simulatedBoard, landR, landC, color, isKing, newPath);
+
+                            if (furtherCaptures.length > 0) {
+                                capturesFound.push(...furtherCaptures);
+                            } else {
+                                capturesFound.push(newPath);
+                            }
+                        }
+                    }
+                }
+            }
+            return capturesFound;
+        };
+
+        const getAllPossibleCaptures = (board, playerColor) => {
+            let allCaptures = [];
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const piece = getPiece(board, r, c);
+                    if (getPieceColor(piece) === playerColor) {
+                        const isKing = (piece === 'W' || piece === 'B');
+                        const pieceCaptures = findCapturesForPiece(board, r, c, playerColor, isKing);
+                        allCaptures.push(...pieceCaptures);
+                    }
+                }
+            }
+
+            if (allCaptures.length === 0) return [];
+
+            let maxLen = 0;
+            allCaptures.forEach(seq => {
+                if (seq.length > maxLen) {
+                    maxLen = seq.length;
+                }
+            });
+
+            return allCaptures.filter(seq => seq.length === maxLen);
+        };
+
+        const getValidMovesForSelectedPiece = (board, r, c, playerColor) => {
+            const piece = getPiece(board, r, c);
+            const isKing = (piece === 'W' || piece === 'B');
+            const validMoves = [];
+
+            const allPlayerCaptures = getAllPossibleCaptures(board, playerColor);
+            const mandatoryCapturesFromThisPiece = allPlayerCaptures.filter(seq => seq[0].from.r === r && seq[0].from.c === c);
+
+            if (mandatoryCapturesFromThisPiece.length > 0) {
+                mandatoryCapturesFromThisPiece.forEach(seq => {
+                    validMoves.push({ type: 'capture', from: seq[0].from, to: seq[0].to, captured: seq[0].captured, fullPath: seq });
+                });
+            } else if (allPlayerCaptures.length === 0) {
+                if (!isKing) {
+                    const dr = (playerColor === 'white' ? -1 : 1);
+                    if (isValidPosition(r + dr, c - 1) && getPiece(board, r + dr, c - 1) === ' ') {
+                        validMoves.push({ type: 'move', from: { r, c }, to: { r: r + dr, c: c - 1 } });
+                    }
+                    if (isValidPosition(r + dr, c + 1) && getPiece(board, r + dr, c + 1) === ' ') {
+                        validMoves.push({ type: 'move', from: { r, c }, to: { r: r + dr, c: c + 1 } });
+                    }
+                } else {
+                    const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+                    for (const [dr, dc] of directions) {
+                        for (let step = 1; ; step++) {
+                            const newR = r + dr * step;
+                            const newC = c + dc * step;
+                            if (!isValidPosition(newR, newC) || getPiece(board, newR, newC) !== ' ') break;
+                            validMoves.push({ type: 'move', from: { r, c }, to: { r: newR, c: newC } });
+                        }
+                    }
+                }
+            }
+            return validMoves;
+        };
+
+
+        // --- Lógica de Interação com o Tabuleiro ---
+        const handleCellClick = (e) => {
+            if (gameStatus !== 'in-progress' || String(user.id) !== String(currentPlayerTurnId)) {
+                showMessage(gameMessageDiv, 'Não é a sua vez de jogar ou a partida não está ativa.', 'info');
+                return;
+            }
+
+            const clickedCell = e.target.closest('.cell');
+            if (!clickedCell) return;
+
+            const clickedRow = parseInt(clickedCell.dataset.row);
+            const clickedCol = parseInt(clickedCell.dataset.col);
+            const pieceElementInClickedCell = clickedCell.querySelector('.piece');
+            const clickedPieceColor = getPieceColor(currentBoardState[clickedRow][clickedCol]);
+
+            if (selectedPiece) {
+                // Uma peça já está selecionada, tente mover para a célula clicada
+                const from = { r: selectedPiece.row, c: selectedPiece.col };
+                const to = { r: clickedRow, c: clickedCol };
+
+                const validMovesForSelected = getValidMovesForSelectedPiece(currentBoardState, from.r, from.c, localPlayerColor);
+                const moveDetails = validMovesForSelected.find(
+                    move => move.to.r === to.r && move.to.c === to.c
+                );
+                
+                // Validação de Multi-Captura (Frontend-side para UX)
+                if (currentMandatoryCaptures.length > 0) {
+                    const isPartOfMandatoryChain = currentMandatoryCaptures.some(seq => {
+                        return seq.from.r === from.r && seq.from.c === from.c && seq.to.r === to.r && seq.to.c === to.c;
+                    });
+                    if (!isPartOfMandatoryChain) {
+                        showMessage(gameMessageDiv, 'Você deve continuar a sequência de captura.', 'error');
+                        clearHighlights();
+                        selectedPiece = null;
+                        return;
+                    }
+                }
+
+
+                if (moveDetails) {
+                    const pieceToAnimate = selectedPiece.element;
+                    const fromCellElement = checkersBoardElement.querySelector(`[data-row="${from.r}"][data-col="${from.c}"]`);
+                    const toCellElement = clickedCell;
+
+                    // 1. Remove a peça da célula de origem.
+                    if (fromCellElement && fromCellElement.contains(pieceToAnimate)) {
+                        fromCellElement.removeChild(pieceToAnimate);
+                    }
+                    // 2. Adiciona a peça à célula de destino. Ela aparece lá imediatamente.
+                    toCellElement.appendChild(pieceToAnimate);
+                    
+                    // 3. Calcula o deslocamento para a animação
+                    const cellWidth = fromCellElement.offsetWidth;
+                    const cellHeight = fromCellElement.offsetHeight;
+                    const dx = (from.c - to.c) * cellWidth;
+                    const dy = (from.r - to.r) * cellHeight;
+
+                    pieceToAnimate.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                    void pieceToAnimate.offsetWidth; // Força reflow
+
+                    // 4. Inicia a animação para o centro da nova célula
+                    pieceToAnimate.style.transform = 'translate(-50%, -50%)';
+
+                    pieceToAnimate.addEventListener('transitionend', function handler() {
+                        pieceToAnimate.removeEventListener('transitionend', handler);
+
+                        // Remove peças capturadas visualmente
+                        if (moveDetails.type === 'capture' && moveDetails.captured) {
+                            const capturedCell = checkersBoardElement.querySelector(`[data-row="${moveDetails.captured.r}"][data-col="${moveDetails.captured.c}"]`);
+                            const capturedPieceElement = capturedCell ? capturedCell.querySelector('.piece') : null;
+                            if (capturedPieceElement) {
+                                capturedPieceElement.remove();
+                            }
+                        }
+
+                        // Lógica de multi-captura no frontend (para UX, backend valida de novo)
+                        if (moveDetails.type === 'capture') {
+                            const boardAfterFirstMove = JSON.parse(JSON.stringify(currentBoardState)); // Simula o estado para verificar próximos saltos
+                            // (Atenção: esta simulação é simplificada, o backend fará a atualização real)
+                            // Apenas remove a peça capturada do boardAfterFirstMove para a checagem
+                            const tempPiece = boardAfterFirstMove[from.r][from.c];
+                            boardAfterFirstMove[from.r][from.c] = ' ';
+                            boardAfterFirstMove[moveDetails.captured.r][moveDetails.captured.c] = ' ';
+                            boardAfterFirstMove[to.r][to.c] = tempPiece; // Move a peça
+
+                            const nextJumps = getAllPossibleCaptures(boardAfterFirstMove, localPlayerColor).filter(
+                                seq => seq[0].from.r === to.r && seq[0].from.c === to.c
+                            );
+                            
+                            if (nextJumps.length > 0) {
+                                showMessage(gameMessageDiv, 'Multi-captura disponível! Clique na mesma peça para continuar.', 'info');
+                                selectedPiece = { row: to.r, col: to.c, element: pieceToAnimate };
+                                highlightPossibleMoves(getValidMovesForSelectedPiece(currentBoardState, to.r, to.c, localPlayerColor));
+                                currentMandatoryCaptures = nextJumps; // Armazena a sequência para o próximo salto
+                                return; // Não envia o movimento ainda nem troca a vez
+                            }
+                        }
+                        
+                        // Se não for multi-captura (ou multi-captura finalizada), envia o movimento para o backend
+                        socket.emit('makeMove', { gameId: currentGameId, userId: user.id, from, to });
+                        
+                        selectedPiece = null;
+                        clearHighlights();
+                        currentMandatoryCaptures = []; // Reseta
+                    });
+                    
+                } else {
+                    showMessage(gameMessageDiv, 'Movimento inválido ou não permitido neste momento.', 'error');
+                    selectedPiece = null;
+                    clearHighlights();
+                    currentMandatoryCaptures = [];
+                }
+            } else {
+                // Nenhuma peça selecionada, tente selecionar uma
+                if (pieceElementInClickedCell && clickedPieceColor === localPlayerColor) {
+                    selectedPiece = {
+                        row: clickedRow,
+                        col: clickedCol,
+                        element: pieceElementInClickedCell
+                    };
+                    
+                    // Mostra os movimentos possíveis para UX (a validação final é do backend)
+                    const possibleMoves = getValidMovesForSelectedPiece(currentBoardState, clickedRow, clickedCol, localPlayerColor);
+                    if (possibleMoves.length > 0) {
+                        highlightPossibleMoves(possibleMoves);
+                        showMessage(gameMessageDiv, `Peça selecionada. Clique em uma casa destacada para mover ou capturar.`, 'info');
+                    } else {
+                        showMessage(gameMessageDiv, 'Esta peça não tem movimentos válidos.', 'info');
+                        selectedPiece = null;
+                        clearHighlights();
+                    }
+                } else {
+                    showMessage(gameMessageDiv, 'Clique em uma das suas peças para começar um movimento.', 'info');
+                    clearHighlights();
+                }
+            }
+        };
+
+        // --- Event Listeners Globais ---
+        checkersBoardElement.addEventListener('click', handleCellClick);
+        leaveGameBtn.addEventListener('click', () => {
+            // Se o jogo está em andamento, pode-se implementar um abandono aqui
+            // Por enquanto, apenas redireciona para o lobby
+            localStorage.removeItem('currentGameId');
+            window.location.href = 'dashboard.html';
+        });
+
+        const handleLogout = (e) => {
+            e.preventDefault();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('currentGameId');
+            window.location.href = 'index.html';
+        };
+        if (logoutBtnDesktop) logoutBtnDesktop.addEventListener('click', handleLogout);
+        if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', handleLogout);
+
+
+        // --- Lógica de Inicialização e WebSocket ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!token || !user) {
+                window.location.href = 'index.html'; // Redireciona se não estiver logado
+                return;
+            }
+            if (!currentGameId) {
+                alert('Nenhuma partida em andamento encontrada. Voltando ao lobby.');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            // Conecta-se à sala do jogo via WebSocket
+            socket.emit('joinGame', { gameId: currentGameId, userId: user.id });
+        });
+
+        // --- Eventos WebSocket ---
+
+        // Recebe o estado inicial ou atualizado do jogo
+        socket.on('gameState', (data) => {
+            console.log('Estado do jogo recebido:', data);
+            currentBoardState = data.boardState;
+            currentPlayerTurnId = data.currentPlayer;
+            gameStatus = data.status;
+
+            // Identifica o jogador local e sua cor
+            player1 = data.players.find(p => p.id === data.players[0].id); // O primeiro jogador no array é sempre branco no backend
+            player2 = data.players.find(p => p.id === data.players[1].id); // O segundo jogador é preto
+
+            if (String(user.id) === String(player1.id)) {
+                localPlayerColor = 'white';
+            } else if (String(user.id) === String(player2.id)) {
+                localPlayerColor = 'black';
+            } else {
+                // Espectador ou erro, pode-se lidar com isso
+                console.warn('Usuário não é um dos jogadores da partida.');
+            }
+
+            betAmountDisplay.textContent = `${data.betAmount.toFixed(2)} MT`;
+            
+            // Atualiza a UI
+            renderBoard();
+            updatePlayerInfoUI(); // Atualiza avatares, nomes, vez
+
+            // Limpa seleção e destaques
+            selectedPiece = null;
+            clearHighlights();
+            currentMandatoryCaptures = []; // Zera multi-capturas pendentes
+
+            if (gameStatus === 'completed' || gameStatus === 'cancelled') {
+                showMessage(gameMessageDiv, `Partida ${gameStatus === 'completed' ? 'concluída!' : 'cancelada!'}`, 'info');
+                // Opcional: mostrar resultado final e redirecionar
+            } else if (String(user.id) === String(currentPlayerTurnId)) {
+                showMessage(gameMessageDiv, 'É a sua vez!', 'success');
+            } else {
+                showMessage(gameMessageDiv, `Vez do oponente...`, 'info');
+            }
+        });
+
+        // Recebe erros do jogo (validação de movimento, etc.)
+        socket.on('gameError', (data) => {
+            console.error('Erro de jogo:', data.message);
+            showMessage(gameMessageDiv, `Erro: ${data.message}`, 'error');
+            selectedPiece = null; // Reseta seleção para tentar de novo
+            clearHighlights();
+            currentMandatoryCaptures = [];
+        });
+
+        // Evento quando a partida termina
+        socket.on('gameEnded', (data) => {
+            console.log('Partida Encerrada:', data);
+            gameStatus = 'completed'; // Ou 'cancelled' dependendo do backend
+            // A UI já deve ter sido atualizada pelo 'gameState' final, mas reforça
+            updatePlayerInfoUI();
+            let winnerName = 'N/A';
+            if (data.winnerId) {
+                winnerName = String(data.winnerId) === String(player1.id) ? player1.username : player2.username;
+                gameStatusMessage.textContent = `Partida Concluída! Vencedor: ${winnerName}. Razão: ${data.reason || 'Fim de jogo'}.`;
+                gameStatusMessage.className = `game-status-message ${String(data.winnerId) === String(player1.id) ? 'white-wins' : 'black-wins'}`;
+            } else {
+                gameStatusMessage.textContent = `Partida encerrada: ${data.reason || 'Sem vencedor claro'}.`;
+                gameStatusMessage.className = 'game-status-message info';
+            }
+            showMessage(gameMessageDiv, gameStatusMessage.textContent, 'info');
+
+            // Redireciona para o histórico de jogos ou lobby após um tempo
+            setTimeout(() => {
+                localStorage.removeItem('currentGameId');
+                window.location.href = 'game-history.html';
+            }, 5000);
+        });
+
+        // Evento quando o oponente se desconecta (exemplo)
+        socket.on('opponentDisconnected', () => {
+            showMessage(gameMessageDiv, 'Seu oponente se desconectou. A partida pode ser cancelada.', 'info');
+            // Backend deveria lidar com isso e enviar 'gameEnded' com status 'cancelled'
+        });
+
+        // Evento quando outro jogador entra na sala do jogo (após o joinGame)
+        socket.on('playerJoined', (data) => {
+            if (String(data.userId) !== String(user.id)) {
+                showMessage(gameMessageDiv, `Seu oponente (${data.userId}) entrou na sala. A partida pode começar!`, 'info');
+            }
+        });
+
+    </script>
+</body>
+</html>
