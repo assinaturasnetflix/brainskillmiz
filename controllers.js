@@ -11,44 +11,41 @@ const { v4: uuidv4 } = require('uuid'); // Para gerar códigos de recuperação 
 
 // --- Configurações (devem vir de variáveis de ambiente no .env) ---
 const JWT_SECRET = process.env.JWT_SECRET;
-const CLOUDINARY_NAME = process.env.CLOUDINARY_NAME; // Corrigido para CLOUDINARY_CLOUD_NAME
+const CLOUDINARY_CLOUD_NAME_ENV = process.env.CLOUDINARY_CLOUD_NAME; // AGORA LÊ CLOUDINARY_CLOUD_NAME do .env
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS; // Senha de aplicativo do Google/Outlook
+const EMAIL_PASS = process.env.EMAIL_PASS;
 
 // Validação de variáveis de ambiente
-if (!JWT_SECRET || !CLOUDINARY_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !EMAIL_USER || !EMAIL_PASS) {
+if (!JWT_SECRET || !CLOUDINARY_CLOUD_NAME_ENV || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !EMAIL_USER || !EMAIL_PASS) {
     console.error("ERRO: Variáveis de ambiente essenciais não definidas. Verifique seu arquivo .env.");
-    process.exit(1); // Encerra o aplicativo se as configurações essenciais estiverem faltando
+    process.exit(1);
 }
 
 // Configuração do Cloudinary
 cloudinary.config({
-    cloud_name: CLOUDINARY_NAME,
+    cloud_name: CLOUDINARY_CLOUD_NAME_ENV,
     api_key: CLOUDINARY_API_KEY,
     api_secret: CLOUDINARY_API_SECRET
 });
 
 // Configuração do Nodemailer
 const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com", // Exemplo para Gmail, ajuste conforme seu provedor
+    host: "smtp.gmail.com",
     port: 587,
-    secure: false, // true para 465, false para outras portas (como 587 TLS)
+    secure: false,
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS,
     },
     tls: {
-        rejectUnauthorized: false // Necessário para alguns hosts, mas evite em produção se possível
+        rejectUnauthorized: false
     }
 });
 
 // --- Middlewares de Autenticação e Autorização ---
 
-/**
- * Middleware para proteger rotas: verifica se o token JWT é válido.
- */
 const protect = async (req, res, next) => {
     let token;
 
@@ -77,9 +74,6 @@ const protect = async (req, res, next) => {
     }
 };
 
-/**
- * Middleware para autorizar acesso baseado em roles (ex: 'admin').
- */
 const authorize = (roles = []) => {
     if (typeof roles === 'string') {
         roles = [roles];
@@ -93,13 +87,8 @@ const authorize = (roles = []) => {
     };
 };
 
-// Variável global para a instância do Socket.io
 let io;
 
-/**
- * Função para inicializar a instância do Socket.io.
- * Chamado uma vez em server.js.
- */
 const initializeSocketIO = (socketInstance) => {
     io = socketInstance;
     console.log('Socket.io inicializado e pronto para uso.');
@@ -107,7 +96,6 @@ const initializeSocketIO = (socketInstance) => {
     io.on('connection', (socket) => {
         console.log(`Novo cliente conectado: ${socket.id}`);
 
-        // Evento para um usuário entrar em uma sala de usuário específica
         socket.on('joinUserRoom', async ({ userId, token }) => {
             try {
                 if (!token) {
@@ -124,8 +112,8 @@ const initializeSocketIO = (socketInstance) => {
                     socket.emit('authError', { message: 'Autenticação falhou: Usuário não encontrado ou bloqueado.' });
                     return;
                 }
-                socket.join(userId); // Junta o socket à sala do seu próprio ID de usuário
-                console.log(`Usuário ${user.username} (${user._id}) entrou na sala pessoal.`);
+                socket.join(userId);
+                console.log(`Usuário <span class="math-inline">\{user\.username\} \(</span>{user._id}) entrou na sala pessoal.`);
             } catch (error) {
                 console.error('Erro ao juntar-se à sala do usuário:', error);
                 socket.emit('authError', { message: 'Falha na autenticação do usuário para sala pessoal.' });
@@ -135,13 +123,11 @@ const initializeSocketIO = (socketInstance) => {
 
         socket.on('disconnect', () => {
             console.log(`Cliente desconectado: ${socket.id}`);
-            // Lógica para lidar com desconexão de jogadores em partidas ativas
-            // Quando um jogador desconecta durante uma partida, o outro vence por WO.
-            // Para implementar isso, você precisaria de um mapa de socket.id para gameId
-            // e userId. Poderíamos adicionar isso a um "TODO" mais tarde se o tempo permitir.
+            // TODO: Lidar com desconexão de jogadores em partidas ativas
+            // Se um jogador desconectar durante uma partida, o outro vence por WO.
+            // Isso requer lógica para identificar qual sala de jogo o socket estava.
         });
 
-        // Evento para um usuário entrar em uma sala de jogo específica
         socket.on('joinGameRoom', async ({ gameId, token }) => {
             try {
                 if (!token) {
@@ -167,12 +153,10 @@ const initializeSocketIO = (socketInstance) => {
                     return;
                 }
 
-                // Verifica se o usuário já está na sala do jogo
                 const rooms = io.sockets.adapter.sids.get(socket.id);
                 if (rooms && rooms.has(gameId.toString())) {
                     console.log(`Usuário ${user.username} já está na sala de jogo ${gameId}`);
                     socket.emit('joinedGameRoom', { gameId, message: 'Você já está na sala da partida.' });
-                    // Envia o estado atual do jogo para o participante que já está na sala
                     io.to(gameId).emit('gameStateUpdate', {
                         gameId: game._id,
                         boardState: JSON.parse(game.boardState),
@@ -187,11 +171,10 @@ const initializeSocketIO = (socketInstance) => {
                 }
 
 
-                socket.join(gameId.toString()); // Junta o socket à sala do gameId
-                console.log(`Usuário ${user.username} (${user._id}) entrou na sala de jogo ${gameId}`);
+                socket.join(gameId.toString());
+                console.log(`Usuário <span class="math-inline">\{user\.username\} \(</span>{user._id}) entrou na sala de jogo ${gameId}`);
                 socket.emit('joinedGameRoom', { gameId, message: 'Você entrou na sala da partida.' });
 
-                // Envia o estado atual do jogo para todos na sala (incluindo o novo participante)
                 io.to(gameId.toString()).emit('gameStateUpdate', {
                     gameId: game._id,
                     boardState: JSON.parse(game.boardState),
@@ -210,7 +193,6 @@ const initializeSocketIO = (socketInstance) => {
             }
         });
 
-        // Evento para uma jogada
         socket.on('makeMove', async ({ gameId, move, token }) => {
             try {
                 if (!token) {
@@ -263,7 +245,6 @@ const initializeSocketIO = (socketInstance) => {
                 const opponentColor = currentPlayerColor === 'white' ? 'black' : 'white';
                 const opponentPlayer = game.players.find(p => p.color === opponentColor);
 
-                // Re-verificar peças do oponente e movimentos válidos
                 const remainingPiecesOpponent = countPieces(validationResult.newBoard, opponentColor);
                 const opponentHasValidMoves = checkHasValidMoves(validationResult.newBoard, opponentColor);
 
@@ -276,7 +257,7 @@ const initializeSocketIO = (socketInstance) => {
                     game.loser = loserUser._id;
                     game.endTime = new Date();
                 } else {
-                    game.currentPlayer = opponentColor; // Troca o turno
+                    game.currentPlayer = opponentColor;
                 }
 
                 await game.save();
@@ -296,11 +277,11 @@ const initializeSocketIO = (socketInstance) => {
                     const platformSettings = await PlatformSettings.findOne();
                     const commissionRate = platformSettings ? platformSettings.commissionRate : 0.10;
 
-                    const winnerGrossGain = game.betAmount; // O que o vencedor recebe do adversário
+                    const winnerGrossGain = game.betAmount;
                     const platformCommission = winnerGrossGain * commissionRate;
                     const winnerNetGain = winnerGrossGain - platformCommission;
 
-                    winnerUser.balance += winnerGrossGain; // Adiciona o valor apostado pelo perdedor
+                    winnerUser.balance += winnerGrossGain;
                     winnerUser.totalWins += 1;
                     winnerUser.totalGames += 1;
                     winnerUser.platformCommissionEarned += platformCommission;
@@ -316,7 +297,7 @@ const initializeSocketIO = (socketInstance) => {
                         winner: { userId: winnerUser._id, username: winnerUser.username },
                         loser: { userId: loserUser._id, username: loserUser.username },
                         betAmount: game.betAmount,
-                        winnerNetGain: winnerNetGain, // Envia o ganho líquido
+                        winnerNetGain: winnerNetGain,
                         platformCommission: platformCommission,
                         message: `${winnerUser.username} venceu a partida e ganhou ${winnerNetGain.toFixed(2)} MT!`
                     });
@@ -341,7 +322,6 @@ const initializeSocketIO = (socketInstance) => {
             }
         });
 
-        // Evento para desistência
         socket.on('forfeitGame', async ({ gameId, token }) => {
             try {
                 if (!token) {
@@ -370,14 +350,12 @@ const initializeSocketIO = (socketInstance) => {
                 const winnerPlayer = game.players.find(p => !p.userId.equals(user._id));
                 const winnerUser = await User.findById(winnerPlayer.userId);
                 
-                // Atualiza o status do jogo
                 game.status = 'completed';
                 game.winner = winnerUser._id;
-                game.loser = user._id; // O desistente é o perdedor
+                game.loser = user._id;
                 game.endTime = new Date();
                 await game.save();
 
-                // Processa os saldos (o desistente perde o valor da aposta)
                 const platformSettings = await PlatformSettings.findOne();
                 const commissionRate = platformSettings ? platformSettings.commissionRate : 0.10;
 
@@ -390,14 +368,13 @@ const initializeSocketIO = (socketInstance) => {
                 winnerUser.totalGames += 1;
                 winnerUser.platformCommissionEarned += platformCommission;
 
-                user.balance -= game.betAmount; // Desistente perde o valor apostado
+                user.balance -= game.betAmount;
                 user.totalLosses += 1;
                 user.totalGames += 1;
 
                 await winnerUser.save();
                 await user.save();
 
-                // Notifica ambos os jogadores sobre a desistência e o resultado
                 io.to(gameId.toString()).emit('gameOver', {
                     winner: { userId: winnerUser._id, username: winnerUser.username },
                     loser: { userId: user._id, username: user.username },
@@ -420,7 +397,6 @@ const initializeSocketIO = (socketInstance) => {
                     await LobbyRoom.findByIdAndUpdate(game.lobbyId, { status: 'closed' });
                 }
 
-                // Acknowledge the forfeit request to the client who initiated it
                 socket.emit('forfeitGameAcknowledged', { winnerUsername: winnerUser.username });
 
 
@@ -457,7 +433,7 @@ const coordToRowCol = (coord) => {
 const rowColToCoord = (row, col) => {
     const char = String.fromCharCode('a'.charCodeAt(0) + col);
     const num = 8 - row;
-    return `${char}${num}`;
+    return `<span class="math-inline">\{char\}</span>{num}`;
 };
 
 // Função para verificar se uma posição está dentro do tabuleiro
@@ -676,6 +652,11 @@ const validateAndApplyMove = (board, fromCoord, toCoord, currentPlayerColor) => 
         }
     }
 
+    // Validação final: Se houver captura obrigatória e o movimento atual não for uma captura, é inválido.
+    if (isCaptureAvailable && !isCurrentMoveACapture) {
+        return { isValid: false, message: 'Captura obrigatória não realizada. Você deve capturar uma peça.' };
+    }
+
     // TODO: Implementar a regra de "maior número de peças" para captura obrigatória
     // Isso é complexo e geralmente envolve um algoritmo de busca (ex: minimax ou BFS/DFS)
     // para encontrar a sequência de captura que resulta no maior número de peças capturadas.
@@ -694,8 +675,7 @@ const getPath = (r1, c1, r2, c2) => {
     let r = r1 + dr;
     let c = c1 + dc;
 
-    while (r !== r2 || c !== c2) { // Inclui o ponto final no path para verificar se está vazio
-        if (!isValidPosition(r, c)) break; // Evita loop infinito se caminho for inválido
+    while (r !== r2 && c !== c2) {
         path.push([r, c]);
         r += dr;
         c += dc;
@@ -704,7 +684,6 @@ const getPath = (r1, c1, r2, c2) => {
 };
 
 // Auxiliar para encontrar todas as possíveis capturas para um jogador.
-// Aprimorado para considerar Dama corretamente
 const findAllPossibleCaptures = (board, playerColor) => {
     const captures = [];
     for (let r = 0; r < 8; r++) {
@@ -714,445 +693,90 @@ const findAllPossibleCaptures = (board, playerColor) => {
                                          (playerColor === 'black' && (piece === 'b' || piece === 'B'));
 
             if (isCurrentPlayerPiece) {
-                const pieceCaptures = findCapturesForPiece(board, r, c, playerColor);
-                captures.push(...pieceCaptures);
+                // Verificar 4 direções diagonais para capturas
+                const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]]; // DR, DC
+                for (const [dr, dc] of directions) {
+                    const opponentRow = r + dr;
+                    const opponentCol = c + dc;
+                    const landingRow = r + 2 * dr;
+                    const landingCol = c + 2 * dc;
+
+                    if (isValidPosition(landingRow, landingCol) && getPiece(board, landingRow, landingCol) === ' ') {
+                        const opponentPiece = getPiece(board, opponentRow, opponentCol);
+                        const isOpponentPiece = (playerColor === 'white' && (opponentPiece === 'b' || opponentPiece === 'B')) ||
+                                               (playerColor === 'black' && (opponentPiece === 'w' || opponentPiece === 'W'));
+                        if (isOpponentPiece) {
+                            // Captura possível
+                            captures.push({ from: rowColToCoord(r, c), to: rowColToCoord(landingRow, landingCol), captured: rowColToCoord(opponentRow, opponentCol) });
+                        }
+                    }
+                }
+                // Para damas, é mais complexo, exigiria verificar todas as distâncias diagonais para captura
+                if (piece === 'W' || piece === 'B') {
+                    // TODO: Implementar lógica de captura para Dama (pode saltar múltiplas casas)
+                    // Isso é um pouco mais complexo, mas segue a mesma lógica:
+                    // Verifique se há uma peça inimiga em qualquer casa diagonal e um espaço vazio depois dela.
+                    // Para simplificar, o exemplo acima cobre apenas 2 casas.
+                    // Uma dama pode capturar a qualquer distância se a casa logo após a peça inimiga estiver vazia.
+                }
             }
         }
     }
     return captures;
 };
 
-
-// Auxiliar para verificar se uma jogada específica é uma captura (retorna capturas para ESSA jogada)
+// Auxiliar para verificar se uma jogada específica é uma captura
 const findCapturesForMove = (board, fromRow, fromCol, toRow, toCol, currentPlayerColor) => {
-    const capturedPiecesCoords = [];
+    const capturedPieces = [];
     const piece = getPiece(board, fromRow, fromCol);
     const isKing = (piece === 'W' || piece === 'B');
 
     const rowDiff = toRow - fromRow;
     const colDiff = toCol - fromCol;
 
-    if (Math.abs(rowDiff) === 0 || Math.abs(rowDiff) !== Math.abs(colDiff)) {
-        return []; // Não é uma diagonal ou não há movimento
-    }
+    if (Math.abs(rowDiff) === 2 && !isKing) { // Possível captura de peão
+        const capturedRow = fromRow + (rowDiff / 2);
+        const capturedCol = fromCol + (colDiff / 2);
+        const capturedPiece = getPiece(board, capturedRow, capturedCol);
 
-    if (!isKing) { // Peão
-        if (Math.abs(rowDiff) === 2) { // Deve ser um salto de 2 casas
-            const capturedRow = fromRow + (rowDiff / 2);
-            const capturedCol = fromCol + (colDiff / 2);
-            const capturedPiece = getPiece(board, capturedRow, capturedCol);
-            const isOpponentPiece = (currentPlayerColor === 'white' && (capturedPiece === 'b' || capturedPiece === 'B')) ||
-                                   (currentPlayerColor === 'black' && (capturedPiece === 'w' || capturedPiece === 'W'));
-            if (isOpponentPiece) {
-                capturedPiecesCoords.push(rowColToCoord(capturedRow, capturedCol));
-            }
+        const isOpponentPiece = (currentPlayerColor === 'white' && (capturedPiece === 'b' || capturedPiece === 'B')) ||
+                               (currentPlayerColor === 'black' && (capturedPiece === 'w' || capturedPiece === 'W'));
+        if (isOpponentPiece) {
+            capturedPieces.push(rowColToCoord(capturedRow, capturedCol));
         }
-    } else { // Dama
-        const path = getPath(fromRow, fromCol, toRow, toCol); // Caminho sem incluir a origem
-        let piecesInPath = 0;
-        let potentialCapturedCoord = null;
-
-        for (const [r, c] of path) {
-            if (r === toRow && c === toCol) break; // Não contar o destino como peça no caminho
+    } else if (isKing && Math.abs(rowDiff) > 1) { // Possível captura de dama
+        const path = getPath(fromRow, fromCol, toRow, toCol);
+        let foundOpponent = false;
+        let capturedCoord = null;
+        for (let i = 0; i < path.length; i++) {
+            const [r, c] = path[i];
             const p = getPiece(board, r, c);
             if (p !== ' ') {
-                piecesInPath++;
                 const isOpponentPiece = (currentPlayerColor === 'white' && (p === 'b' || p === 'B')) ||
                                        (currentPlayerColor === 'black' && (p === 'w' || p === 'W'));
-                if (isOpponentPiece) {
-                    potentialCapturedCoord = rowColToCoord(r, c);
-                } else { // É uma peça do próprio jogador no caminho
-                    return []; // Caminho bloqueado
+                if (isOpponentPiece && !foundOpponent) {
+                    foundOpponent = true;
+                    capturedCoord = rowColToCoord(r, c);
+                } else {
+                    // Mais de uma peça no caminho ou uma peça própria
+                    return []; // Não é uma captura válida ou caminho bloqueado
                 }
             }
         }
-
-        if (piecesInPath === 1 && potentialCapturedCoord) {
-            // A casa de destino deve estar vazia. Isso já é verificado em validateAndApplyMove.
-            // Aqui só confirmamos que tem uma peça inimiga no caminho e a casa de destino está DEPOIS dela.
-            // O caminho obtido por getPath já exclui a origem e inclui o destino.
-            // A casa da peça capturada é a penúltima antes do destino se for um salto de uma peça.
-            capturedPiecesCoords.push(potentialCapturedCoord);
+        if (foundOpponent && capturedCoord) {
+            capturedPieces.push(capturedCoord);
         }
     }
-    return capturedPiecesCoords;
+    return capturedPieces;
 };
 
 // --- Fim das Funções Auxiliares de Jogo ---
 
+// Instruções para a próxima parte:
+// A seguir, adicionaremos os controladores para as rotas de usuário e autenticação.
+// controllers.js (Continuação - Parte 3)
 
-// --- Controladores de Autenticação e Usuário ---
-
-/**
- * @desc Registrar um novo usuário
- * @route POST /api/auth/register
- * @access Public
- */
-const registerUser = async (req, res) => {
-    const { username, email, password, mPesaNumber, eMolaNumber } = req.body;
-
-    if (!username || !email || !password) {
-        return res.status(400).json({ message: 'Por favor, insira todos os campos obrigatórios: username, email e password.' });
-    }
-    if (password.length < 6) {
-        return res.status(400).json({ message: 'A senha deve ter pelo menos 6 caracteres.' });
-    }
-
-    try {
-        let user = await User.findOne({ $or: [{ email }, { username }] });
-        if (user) {
-            return res.status(400).json({ message: 'Usuário ou e-mail já registrado.' });
-        }
-
-        user = await User.create({
-            username,
-            email,
-            password,
-            mPesaNumber: mPesaNumber || undefined,
-            eMolaNumber: eMolaNumber || undefined,
-        });
-
-        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
-
-        res.status(201).json({
-            message: 'Usuário registrado com sucesso!',
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                avatar: user.avatar,
-                balance: user.balance,
-                role: user.role,
-                mPesaNumber: user.mPesaNumber,
-                eMolaNumber: user.eMolaNumber,
-            },
-            token,
-        });
-
-    } catch (error) {
-        console.error('Erro no registro de usuário:', error);
-        res.status(500).json({ message: 'Erro no servidor ao registrar usuário.' });
-    }
-};
-
-/**
- * @desc Autenticar usuário e obter token
- * @route POST /api/auth/login
- * @access Public
- */
-const loginUser = async (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Por favor, insira e-mail e senha.' });
-    }
-
-    try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'Credenciais inválidas.' });
-        }
-
-        if (user.isBlocked) {
-            return res.status(403).json({ message: 'Sua conta está bloqueada. Entre em contato com o suporte.' });
-        }
-
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Credenciais inválidas.' });
-        }
-
-        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
-
-        res.status(200).json({
-            message: 'Login realizado com sucesso!',
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                avatar: user.avatar,
-                balance: user.balance,
-                role: user.role,
-                mPesaNumber: user.mPesaNumber,
-                eMolaNumber: user.eMolaNumber,
-                totalWins: user.totalWins,
-                totalLosses: user.totalLosses,
-                totalGames: user.totalGames,
-                platformCommissionEarned: user.platformCommissionEarned
-            },
-            token,
-        });
-
-    } catch (error) {
-        console.error('Erro no login de usuário:', error);
-        res.status(500).json({ message: 'Erro no servidor ao fazer login.' });
-    }
-};
-
-/**
- * @desc Solicitar recuperação de senha (envia código por email)
- * @route POST /api/auth/forgot-password
- * @access Public
- */
-const forgotPassword = async (req, res) => {
-    const { email } = req.body;
-
-    if (!email) {
-        return res.status(400).json({ message: 'Por favor, insira seu e-mail.' });
-    }
-
-    try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(200).json({ message: 'Se o e-mail estiver registrado, um código de recuperação será enviado.' });
-        }
-
-        const resetCode = uuidv4().substring(0, 6).toUpperCase();
-        const resetExpires = Date.now() + 10 * 60 * 1000;
-
-        user.passwordResetCode = resetCode;
-        user.passwordResetExpires = resetExpires;
-        await user.save();
-
-        const platformSettings = await PlatformSettings.findOne();
-        const platformName = platformSettings ? platformSettings.platformName : "BrainSkill";
-
-        const mailOptions = {
-            from: `"${platformName} Support" <${EMAIL_USER}>`,
-            to: user.email,
-            subject: `[${platformName}] Código de Recuperação de Senha`,
-            html: `
-                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                    <div style="background-color: #4CAF50; color: white; padding: 20px; text-align: center;">
-                        <h1 style="margin: 0;">${platformName}</h1>
-                    </div>
-                    <div style="padding: 20px;">
-                        <p>Olá ${user.username},</p>
-                        <p>Recebemos uma solicitação de recuperação de senha para sua conta.</p>
-                        <p>Seu código de recuperação é:</p>
-                        <h2 style="background-color: #f2f2f2; padding: 10px; text-align: center; border-radius: 5px; letter-spacing: 5px;">
-                            <strong>${resetCode}</strong>
-                        </h2>
-                        <p>Este código é válido por <strong>10 minutos</strong>. Não o compartilhe com ninguém.</p>
-                        <p>Se você não solicitou esta recuperação, por favor, ignore este e-mail.</p>
-                        <p>Atenciosamente,<br>A Equipe ${platformName}</p>
-                    </div>
-                    <div style="background-color: #f0f0f0; color: #777; padding: 15px; text-align: center; font-size: 0.8em;">
-                        <p>&copy; ${new Date().getFullYear()} ${platformName}. Todos os direitos reservados.</p>
-                    </div>
-                </div>
-            `,
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        res.status(200).json({ message: 'Código de recuperação enviado para o seu e-mail.' });
-
-    } catch (error) {
-        console.error('Erro ao enviar e-mail de recuperação:', error);
-        res.status(500).json({ message: 'Erro no servidor ao solicitar recuperação de senha.' });
-    }
-};
-
-/**
- * @desc Redefinir senha usando o código
- * @route POST /api/auth/reset-password
- * @access Public
- */
-const resetPassword = async (req, res) => {
-    const { email, code, newPassword } = req.body;
-
-    if (!email || !code || !newPassword) {
-        return res.status(400).json({ message: 'Por favor, forneça e-mail, código e a nova senha.' });
-    }
-    if (newPassword.length < 6) {
-        return res.status(400).json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' });
-    }
-
-    try {
-        const user = await User.findOne({
-            email,
-            passwordResetCode: code,
-            passwordResetExpires: { $gt: Date.now() }
-        });
-
-        if (!user) {
-            return res.status(400).json({ message: 'Código de recuperação inválido ou expirado.' });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(newPassword, salt);
-        user.passwordResetCode = undefined;
-        user.passwordResetExpires = undefined;
-        await user.save();
-
-        res.status(200).json({ message: 'Senha redefinida com sucesso!' });
-
-    } catch (error) {
-        console.error('Erro ao redefinir senha:', error);
-        res.status(500).json({ message: 'Erro no servidor ao redefinir senha.' });
-    }
-};
-
-/**
- * @desc Obter perfil do usuário logado
- * @route GET /api/users/profile
- * @access Private
- */
-const getUserProfile = async (req, res) => {
-    try {
-        const user = req.user;
-
-        res.status(200).json({
-            id: user._id,
-            username: user.username,
-            email: user.email,
-            avatar: user.avatar,
-            balance: user.balance,
-            role: user.role,
-            mPesaNumber: user.mPesaNumber,
-            eMolaNumber: user.eMolaNumber,
-            totalWins: user.totalWins,
-            totalLosses: user.totalLosses,
-            totalGames: user.totalGames,
-            platformCommissionEarned: user.platformCommissionEarned
-        });
-
-    } catch (error) {
-        console.error('Erro ao obter perfil do usuário:', error);
-        res.status(500).json({ message: 'Erro no servidor ao obter perfil.' });
-    }
-};
-
-/**
- * @desc Atualizar perfil do usuário logado
- * @route PUT /api/users/profile
- * @access Private
- */
-const updateUserProfile = async (req, res) => {
-    const { username, email, mPesaNumber, eMolaNumber, newPassword } = req.body;
-
-    try {
-        const user = await User.findById(req.user._id);
-
-        if (!user) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
-
-        if (username && username !== user.username) {
-            const usernameExists = await User.findOne({ username });
-            if (usernameExists && !usernameExists._id.equals(user._id)) {
-                return res.status(400).json({ message: 'Nome de usuário já em uso.' });
-            }
-            user.username = username;
-        }
-        if (email && email !== user.email) {
-            const emailExists = await User.findOne({ email });
-            if (emailExists && !emailExists._id.equals(user._id)) {
-                return res.status(400).json({ message: 'E-mail já em uso.' });
-            }
-            user.email = email;
-        }
-        if (mPesaNumber !== undefined) {
-            user.mPesaNumber = mPesaNumber;
-        }
-        if (eMolaNumber !== undefined) {
-            user.eMolaNumber = eMolaNumber;
-        }
-        if (newPassword) {
-            if (newPassword.length < 6) {
-                return res.status(400).json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' });
-            }
-            user.password = newPassword;
-        }
-
-        await user.save();
-
-        res.status(200).json({
-            message: 'Perfil atualizado com sucesso!',
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                avatar: user.avatar,
-                balance: user.balance,
-                role: user.role,
-                mPesaNumber: user.mPesaNumber,
-                eMolaNumber: user.eMolaNumber,
-            }
-        });
-
-    } catch (error) {
-        console.error('Erro ao atualizar perfil do usuário:', error);
-        if (error.code === 11000) {
-            return res.status(400).json({ message: 'Username ou e-mail já em uso por outra conta.' });
-        }
-        res.status(500).json({ message: 'Erro no servidor ao atualizar perfil.' });
-    }
-};
-
-/**
- * @desc Upload de avatar para o usuário logado
- * @route POST /api/users/profile/avatar
- * @access Private
- */
-const uploadAvatar = async (req, res) => {
-    try {
-        let imageUrl = req.body.imageUrl;
-        const imageData = req.body.imageData;
-
-        if (!imageUrl && !imageData) {
-            return res.status(400).json({ message: 'Nenhuma imagem fornecida para upload.' });
-        }
-
-        if (imageData) {
-            const result = await cloudinary.uploader.upload(imageData, {
-                folder: 'brainskill_avatars',
-                width: 150,
-                height: 150,
-                crop: 'fill'
-            });
-            imageUrl = result.secure_url;
-        } else if (imageUrl && !imageUrl.startsWith('http')) {
-            return res.status(400).json({ message: 'URL de imagem inválida.' });
-        }
-
-        const user = await User.findById(req.user._id);
-        if (!user) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
-
-        user.avatar = imageUrl;
-        await user.save();
-
-        res.status(200).json({ message: 'Avatar atualizado com sucesso!', avatar: user.avatar });
-
-    } catch (error) {
-        console.error('Erro ao fazer upload de avatar:', error);
-        res.status(500).json({ message: 'Erro no servidor ao fazer upload de avatar.', error: error.message });
-    }
-};
-
-/**
- * @desc Obter ranking de jogadores (perfis visíveis)
- * @route GET /api/users/ranking
- * @access Public
- */
-const getRanking = async (req, res) => {
-    try {
-        const ranking = await User.find({ role: 'user', isBlocked: false })
-            .select('username avatar totalWins totalLosses totalGames balance')
-            .sort({ totalWins: -1, totalGames: -1, balance: -1 })
-            .limit(50);
-
-        res.status(200).json(ranking);
-
-    } catch (error) {
-        console.error('Erro ao obter ranking:', error);
-        res.status(500).json({ message: 'Erro no servidor ao obter ranking.' });
-    }
-};
-
+// ... (Conteúdo da Parte 1 e Parte 2)
 
 // --- Controladores de Transações (Depósito e Levantamento) ---
 
@@ -1188,7 +812,7 @@ const requestDeposit = async (req, res) => {
             amount,
             method,
             phoneNumber,
-            status: 'pending'
+            status: 'pending' // Começa como pendente para aprovação do admin
         });
 
         res.status(201).json({
@@ -1224,9 +848,11 @@ const requestWithdrawal = async (req, res) => {
     try {
         const user = await User.findById(req.user._id);
 
+        // TODO: Definir limite mínimo e máximo para saque nas configurações da plataforma
         const platformSettings = await PlatformSettings.findOne();
-        const minWithdrawal = platformSettings ? platformSettings.minWithdrawal : 100;
-        const maxWithdrawal = platformSettings ? platformSettings.maxWithdrawal : user.balance;
+        const minWithdrawal = platformSettings ? platformSettings.minWithdrawal : 100; // Exemplo de limite
+        // maxWithdrawal talvez seja o balanço total? Ou um limite fixo.
+        const maxWithdrawal = platformSettings ? platformSettings.maxWithdrawal : user.balance; // Pode ser o saldo disponível ou um limite fixo
 
         if (amount < minWithdrawal) {
              return res.status(400).json({ message: `O valor mínimo para levantamento é ${minWithdrawal} MT.` });
@@ -1238,6 +864,7 @@ const requestWithdrawal = async (req, res) => {
             return res.status(400).json({ message: `O valor máximo para levantamento é ${maxWithdrawal} MT.` });
         }
 
+        // Cria a solicitação de levantamento (status pendente)
         const withdrawal = await Withdrawal.create({
             userId: req.user._id,
             amount,
@@ -1246,6 +873,8 @@ const requestWithdrawal = async (req, res) => {
             status: 'pending'
         });
 
+        // Deduz temporariamente o valor do saldo do usuário para evitar gastos duplos
+        // Este valor será ajustado (confirmado ou estornado) pelo admin
         user.balance -= amount;
         await user.save();
 
@@ -1268,13 +897,14 @@ const requestWithdrawal = async (req, res) => {
  */
 const getGameHistory = async (req, res) => {
     try {
+        // Encontra todas as partidas onde o usuário foi um dos jogadores
         const games = await Game.find({
             'players.userId': req.user._id,
-            status: { $in: ['completed', 'cancelled'] }
+            status: { $in: ['completed', 'cancelled'] } // Apenas partidas finalizadas ou canceladas
         })
-        .populate('players.userId', 'username avatar')
-        .populate('winner', 'username')
-        .sort({ createdAt: -1 });
+        .populate('players.userId', 'username avatar') // Popula dados básicos dos jogadores
+        .populate('winner', 'username') // Popula o nome do vencedor
+        .sort({ createdAt: -1 }); // Mais recentes primeiro
 
         const formattedGames = games.map(game => {
             const player1 = game.players.find(p => p.userId._id.equals(req.user._id));
@@ -1324,17 +954,19 @@ const createLobby = async (req, res) => {
         }
 
         const platformSettings = await PlatformSettings.findOne();
-        const maxBet = platformSettings ? platformSettings.maxBet : 1000;
+        const maxBet = platformSettings ? platformSettings.maxBet : 1000; // Limite padrão de aposta
 
         if (betAmount > maxBet) {
             return res.status(400).json({ message: `O valor máximo de aposta é ${maxBet} MT.` });
         }
 
+        // Verifica se o usuário já tem um lobby aberto
         const existingOpenLobby = await LobbyRoom.findOne({ 'creator.userId': user._id, status: 'open' });
         if (existingOpenLobby) {
             return res.status(400).json({ message: 'Você já tem um lobby de aposta aberto. Por favor, espere ou cancele-o.' });
         }
 
+        // Deduz o valor da aposta do saldo do criador
         user.balance -= betAmount;
         await user.save();
 
@@ -1348,7 +980,8 @@ const createLobby = async (req, res) => {
             status: 'open',
         });
 
-        io.emit('newGgLobby', lobby);
+        // Notificar todos os clientes sobre o novo lobby
+        io.emit('newGgLobby', lobby); // 'newGgLobby' é um nome de evento de sua escolha
 
         res.status(201).json({
             message: 'Lobby de aposta criado com sucesso! Aguardando um adversário.',
@@ -1386,20 +1019,25 @@ const joinLobby = async (req, res) => {
         if (user.balance < lobby.betAmount) {
             return res.status(400).json({ message: 'Saldo insuficiente para entrar nesta aposta.' });
         }
+        // Verifica se o usuário já tem um lobby aberto (para não entrar em outro enquanto um já está ativo)
         const existingOpenLobby = await LobbyRoom.findOne({ 'creator.userId': user._id, status: 'open' });
         if (existingOpenLobby) {
             return res.status(400).json({ message: 'Você já tem um lobby de aposta aberto. Cancele-o para entrar em outro.' });
         }
 
+        // Deduz o valor da aposta do saldo do jogador que está entrando
         user.balance -= lobby.betAmount;
         await user.save();
 
+        // Atualiza o lobby com o oponente
         lobby.opponent = { userId: user._id, username: user.username };
         lobby.status = 'in-game';
         await lobby.save();
 
+        // --- Criar nova partida de Damas ---
+        // Escolhe aleatoriamente as cores
         const players = [];
-        const creatorUser = await User.findById(lobby.creator.userId);
+        const creatorUser = await User.findById(lobby.creator.userId); // Obter dados completos do criador
         let whitePlayer, blackPlayer;
 
         if (Math.random() < 0.5) {
@@ -1413,22 +1051,26 @@ const joinLobby = async (req, res) => {
 
         const newGame = await Game.create({
             players,
-            boardState: JSON.stringify(initialBoardState),
-            currentPlayer: 'white',
+            boardState: JSON.stringify(initialBoardState), // Estado inicial do tabuleiro
+            currentPlayer: 'white', // Branco sempre começa
             status: 'in-progress',
             betAmount: lobby.betAmount,
             lobbyId: lobby._id
         });
 
-        lobby.gameId = newGame._id;
+        lobby.gameId = newGame._id; // Linka o lobby à nova partida
         await lobby.save();
 
-        io.emit('lobbyUpdated', { lobbyId: lobby._id, status: 'in-game' });
+        // Notificar o criador do lobby e o novo jogador sobre a partida iniciada
+        // E também notificar o lobby geral que este lobby foi "fechado" (agora em jogo)
+        io.emit('lobbyUpdated', { lobbyId: lobby._id, status: 'in-game' }); // Notifica que o lobby foi pego
         io.to(newGame._id.toString()).emit('gameStarted', {
             gameId: newGame._id,
-            players: await Promise.all(newGame.players.map(async p => { // Fetch avatars here
-                const pUser = await User.findById(p.userId);
-                return { username: p.username, color: p.color, userId: p.userId, avatar: pUser ? pUser.avatar : null };
+            players: newGame.players.map(p => ({
+                userId: p.userId,
+                username: p.username,
+                color: p.color,
+                avatar: p.userId.equals(creatorUser._id) ? creatorUser.avatar : user.avatar // Para mostrar avatar no frontend
             })),
             initialBoard: initialBoardState,
             currentPlayer: newGame.currentPlayer,
@@ -1445,6 +1087,7 @@ const joinLobby = async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao entrar no lobby:', error);
+        // Em caso de erro, considerar estornar o saldo se já foi deduzido
         res.status(500).json({ message: 'Erro no servidor ao entrar no lobby.' });
     }
 };
@@ -1464,6 +1107,7 @@ const cancelLobby = async (req, res) => {
             return res.status(404).json({ message: 'Lobby não encontrado.' });
         }
 
+        // Verifica se o usuário logado é o criador do lobby
         if (!lobby.creator.userId.equals(req.user._id)) {
             return res.status(403).json({ message: 'Você não tem permissão para cancelar este lobby.' });
         }
@@ -1472,14 +1116,17 @@ const cancelLobby = async (req, res) => {
             return res.status(400).json({ message: 'Não é possível cancelar um lobby que não está mais aberto.' });
         }
 
+        // Estorna o valor da aposta para o criador do lobby
         const user = await User.findById(req.user._id);
         user.balance += lobby.betAmount;
         await user.save();
 
-        lobby.status = 'closed';
+        // Atualiza o status do lobby para 'cancelled' ou o remove (depende da preferência)
+        lobby.status = 'closed'; // Ou 'cancelled' se houver um enum específico
         await lobby.save();
+        // Alternativamente: await LobbyRoom.findByIdAndDelete(lobbyId);
 
-        io.emit('lobbyCancelled', { lobbyId: lobby._id, message: 'Lobby cancelado.' });
+        io.emit('lobbyCancelled', { lobbyId: lobby._id, message: 'Lobby cancelado.' }); // Notifica o frontend
 
         res.status(200).json({ message: 'Lobby cancelado e valor da aposta estornado.', lobbyId: lobby._id });
 
@@ -1498,30 +1145,580 @@ const cancelLobby = async (req, res) => {
 const getLobbies = async (req, res) => {
     try {
         const lobbies = await LobbyRoom.find({ status: 'open' })
-            .select('creator.username betAmount shortDescription createdAt creator.userId') // Inclui creator.userId
+            .select('creator.username betAmount shortDescription createdAt')
             .sort({ createdAt: -1 });
 
-        // Adicionar avatar do criador, se disponível, para exibir no frontend
-        const lobbiesWithAvatars = await Promise.all(lobbies.map(async (lobby) => {
-            const creatorUser = await User.findById(lobby.creator.userId).select('avatar');
-            return {
-                ...lobby.toObject(), // Converte para objeto JS puro
-                creator: {
-                    username: lobby.creator.username,
-                    userId: lobby.creator.userId,
-                    avatar: creatorUser ? creatorUser.avatar : 'https://res.cloudinary.com/dje6f5k5u/image/upload/v1/default_avatar.png'
-                }
-            };
-        }));
-
-        res.status(200).json(lobbiesWithAvatars);
+        res.status(200).json(lobbies);
 
     } catch (error) {
         console.error('Erro ao obter lobbies:', error);
         res.status(500).json({ message: 'Erro no servidor ao obter lobbies.' });
     }
 };
-// ... rest of controllers.js (admin functions and exports) ...
+
+// Instruções para a próxima parte:
+// A seguir, adicionaremos os controladores para as rotas administrativas,
+// que são as últimas funcionalidades importantes do backend.
+// controllers.js (Continuação - Parte 4)
+
+// ... (Conteúdo da Parte 1, Parte 2 e Parte 3)
+
+// --- Controladores Administrativos ---
+
+/**
+ * @desc Login do Administrador
+ * @route POST /api/admin/login
+ * @access Public (mas requer credenciais de admin)
+ */
+const adminLogin = async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Por favor, insira e-mail e senha.' });
+    }
+
+    try {
+        const user = await User.findOne({ email });
+
+        if (!user || user.role !== 'admin') {
+            return res.status(401).json({ message: 'Credenciais de administrador inválidas.' });
+        }
+
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Credenciais de administrador inválidas.' });
+        }
+
+        // Gerar token JWT para o admin
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '8h' }); // Token de admin pode ter validade maior
+
+        res.status(200).json({
+            message: 'Login de administrador realizado com sucesso!',
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+            },
+            token,
+        });
+
+    } catch (error) {
+        console.error('Erro no login de administrador:', error);
+        res.status(500).json({ message: 'Erro no servidor ao fazer login de administrador.' });
+    }
+};
+
+/**
+ * @desc Obter todos os usuários (apenas para admin)
+ * @route GET /api/admin/users
+ * @access Private/Admin
+ */
+const getAllUsers = async (req, res) => {
+    try {
+        // Excluir admins da lista ou incluir conforme necessidade
+        const users = await User.find({ role: 'user' }).select('-password'); // Não retornar senhas
+
+        res.status(200).json(users);
+    } catch (error) {
+        console.error('Erro ao obter todos os usuários:', error);
+        res.status(500).json({ message: 'Erro no servidor ao obter usuários.' });
+    }
+};
+
+/**
+ * @desc Bloquear conta de usuário (apenas para admin)
+ * @route PUT /api/admin/users/:userId/block
+ * @access Private/Admin
+ */
+const blockUser = async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        if (user.role === 'admin') {
+            return res.status(403).json({ message: 'Não é possível bloquear outro administrador.' });
+        }
+
+        user.isBlocked = true;
+        await user.save();
+
+        res.status(200).json({ message: `Usuário ${user.username} bloqueado com sucesso.` });
+    } catch (error) {
+        console.error('Erro ao bloquear usuário:', error);
+        res.status(500).json({ message: 'Erro no servidor ao bloquear usuário.' });
+    }
+};
+
+/**
+ * @desc Desbloquear conta de usuário (apenas para admin)
+ * @route PUT /api/admin/users/:userId/unblock
+ * @access Private/Admin
+ */
+const unblockUser = async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        user.isBlocked = false;
+        await user.save();
+
+        res.status(200).json({ message: `Usuário ${user.username} desbloqueado com sucesso.` });
+    } catch (error) {
+        console.error('Erro ao desbloquear usuário:', error);
+        res.status(500).json({ message: 'Erro no servidor ao desbloquear usuário.' });
+    }
+};
+
+/**
+ * @desc Obter solicitações de depósito pendentes (apenas para admin)
+ * @route GET /api/admin/deposits/pending
+ * @access Private/Admin
+ */
+const getPendingDeposits = async (req, res) => {
+    try {
+        const deposits = await Deposit.find({ status: 'pending' }).populate('userId', 'username email');
+        res.status(200).json(deposits);
+    } catch (error) {
+        console.error('Erro ao obter depósitos pendentes:', error);
+        res.status(500).json({ message: 'Erro no servidor ao obter depósitos pendentes.' });
+    }
+};
+
+/**
+ * @desc Aprovar uma solicitação de depósito (apenas para admin)
+ * @route PUT /api/admin/deposits/:depositId/approve
+ * @access Private/Admin
+ */
+const approveDeposit = async (req, res) => {
+    const { depositId } = req.params;
+    const { transactionId, adminNotes } = req.body; // Opcional: ID da transação real, notas do admin
+
+    try {
+        const deposit = await Deposit.findById(depositId);
+        if (!deposit) {
+            return res.status(404).json({ message: 'Solicitação de depósito não encontrada.' });
+        }
+        if (deposit.status !== 'pending') {
+            return res.status(400).json({ message: 'Este depósito já foi processado.' });
+        }
+
+        const user = await User.findById(deposit.userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário associado ao depósito não encontrado.' });
+        }
+
+        // Adicionar o valor ao saldo do usuário
+        user.balance += deposit.amount;
+        await user.save();
+
+        // Atualizar status do depósito
+        deposit.status = 'approved';
+        deposit.transactionId = transactionId || deposit.transactionId;
+        deposit.adminNotes = adminNotes || deposit.adminNotes;
+        deposit.processedBy = req.user._id; // Admin que aprovou
+        deposit.processedAt = new Date();
+        await deposit.save();
+
+        // Notificar o usuário via Socket.io sobre o depósito aprovado
+        io.to(user._id.toString()).emit('balanceUpdate', {
+            newBalance: user.balance,
+            message: `Seu depósito de ${deposit.amount} MT foi aprovado!`
+        });
+
+        res.status(200).json({ message: 'Depósito aprovado com sucesso!', deposit });
+
+    } catch (error) {
+        console.error('Erro ao aprovar depósito:', error);
+        res.status(500).json({ message: 'Erro no servidor ao aprovar depósito.' });
+    }
+};
+
+/**
+ * @desc Recusar uma solicitação de depósito (apenas para admin)
+ * @route PUT /api/admin/deposits/:depositId/reject
+ * @access Private/Admin
+ */
+const rejectDeposit = async (req, res) => {
+    const { depositId } = req.params;
+    const { adminNotes } = req.body;
+
+    try {
+        const deposit = await Deposit.findById(depositId);
+        if (!deposit) {
+            return res.status(404).json({ message: 'Solicitação de depósito não encontrada.' });
+        }
+        if (deposit.status !== 'pending') {
+            return res.status(400).json({ message: 'Este depósito já foi processado.' });
+        }
+
+        // Atualizar status do depósito para rejeitado
+        deposit.status = 'rejected';
+        deposit.adminNotes = adminNotes || 'Rejeitado pelo administrador.';
+        deposit.processedBy = req.user._id;
+        deposit.processedAt = new Date();
+        await deposit.save();
+
+        // Notificar o usuário via Socket.io sobre o depósito rejeitado
+        const user = await User.findById(deposit.userId);
+        if (user) {
+            io.to(user._id.toString()).emit('balanceUpdate', {
+                newBalance: user.balance, // Saldo não mudou
+                message: `Seu depósito de ${deposit.amount} MT foi rejeitado. Razão: ${deposit.adminNotes}`
+            });
+        }
+
+
+        res.status(200).json({ message: 'Depósito rejeitado com sucesso!', deposit });
+
+    } catch (error) {
+        console.error('Erro ao rejeitar depósito:', error);
+        res.status(500).json({ message: 'Erro no servidor ao rejeitar depósito.' });
+    }
+};
+
+/**
+ * @desc Obter solicitações de levantamento pendentes (apenas para admin)
+ * @route GET /api/admin/withdrawals/pending
+ * @access Private/Admin
+ */
+const getPendingWithdrawals = async (req, res) => {
+    try {
+        const withdrawals = await Withdrawal.find({ status: 'pending' }).populate('userId', 'username email');
+        res.status(200).json(withdrawals);
+    }
+    catch (error) {
+        console.error('Erro ao obter levantamentos pendentes:', error);
+        res.status(500).json({ message: 'Erro no servidor ao obter levantamentos pendentes.' });
+    }
+};
+
+/**
+ * @desc Aprovar uma solicitação de levantamento (apenas para admin)
+ * @route PUT /api/admin/withdrawals/:withdrawalId/approve
+ * @access Private/Admin
+ */
+const approveWithdrawal = async (req, res) => {
+    const { withdrawalId } = req.params;
+    const { transactionId, adminNotes } = req.body;
+
+    try {
+        const withdrawal = await Withdrawal.findById(withdrawalId);
+        if (!withdrawal) {
+            return res.status(404).json({ message: 'Solicitação de levantamento não encontrada.' });
+        }
+        if (withdrawal.status !== 'pending') {
+            return res.status(400).json({ message: 'Este levantamento já foi processado.' });
+        }
+
+        // O valor já foi deduzido do usuário no momento da solicitação.
+        // Aqui, apenas atualizamos o status e registramos o processamento.
+
+        withdrawal.status = 'approved';
+        withdrawal.transactionId = transactionId || withdrawal.transactionId;
+        withdrawal.adminNotes = adminNotes || withdrawal.adminNotes;
+        withdrawal.processedBy = req.user._id;
+        withdrawal.processedAt = new Date();
+        await withdrawal.save();
+
+        // Notificar o usuário via Socket.io sobre o levantamento aprovado
+        const user = await User.findById(withdrawal.userId);
+        if (user) {
+            io.to(user._id.toString()).emit('balanceUpdate', {
+                newBalance: user.balance, // Saldo já deduzido, apenas para confirmação
+                message: `Seu levantamento de ${withdrawal.amount} MT foi aprovado e enviado!`
+            });
+        }
+
+
+        res.status(200).json({ message: 'Levantamento aprovado com sucesso!', withdrawal });
+
+    }
+    catch (error) {
+        console.error('Erro ao aprovar levantamento:', error);
+        res.status(500).json({ message: 'Erro no servidor ao aprovar levantamento.' });
+    }
+};
+
+/**
+ * @desc Recusar uma solicitação de levantamento (apenas para admin)
+ * @route PUT /api/admin/withdrawals/:withdrawalId/reject
+ * @access Private/Admin
+ */
+const rejectWithdrawal = async (req, res) => {
+    const { withdrawalId } = req.params;
+    const { adminNotes } = req.body;
+
+    try {
+        const withdrawal = await Withdrawal.findById(withdrawalId);
+        if (!withdrawal) {
+            return res.status(404).json({ message: 'Solicitação de levantamento não encontrada.' });
+        }
+        if (withdrawal.status !== 'pending') {
+            return res.status(400).json({ message: 'Este levantamento já foi processado.' });
+        }
+
+        const user = await User.findById(withdrawal.userId);
+        if (!user) {
+            // Este caso não deveria acontecer se o usuário existe, mas é um bom fallback
+            return res.status(404).json({ message: 'Usuário associado ao levantamento não encontrado.' });
+        }
+
+        // Estornar o valor para o saldo do usuário, pois a solicitação foi rejeitada
+        user.balance += withdrawal.amount;
+        await user.save();
+
+        // Atualizar status do levantamento para rejeitado
+        withdrawal.status = 'rejected';
+        withdrawal.adminNotes = adminNotes || 'Rejeitado pelo administrador.';
+        withdrawal.processedBy = req.user._id;
+        withdrawal.processedAt = new Date();
+        await withdrawal.save();
+
+        // Notificar o usuário via Socket.io sobre o levantamento rejeitado
+        io.to(user._id.toString()).emit('balanceUpdate', {
+            newBalance: user.balance,
+            message: `Seu levantamento de ${withdrawal.amount} MT foi rejeitado e o valor estornado para sua conta.`
+        });
+
+        res.status(200).json({ message: 'Levantamento rejeitado com sucesso! Valor estornado para o usuário.', withdrawal });
+
+    }
+    catch (error) {
+        console.error('Erro ao rejeitar levantamento:', error);
+        res.status(500).json({ message: 'Erro no servidor ao rejeitar levantamento.' });
+    }
+};
+
+/**
+ * @desc Adicionar saldo manualmente a um usuário (apenas para admin)
+ * @route POST /api/admin/users/:userId/add-balance
+ * @access Private/Admin
+ */
+const addBalance = async (req, res) => {
+    const { userId } = req.params;
+    const { amount, adminNotes } = req.body;
+
+    if (!amount || amount <= 0) {
+        return res.status(400).json({ message: 'Valor inválido para adicionar saldo.' });
+    }
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        user.balance += amount;
+        await user.save();
+
+        // Opcional: registrar esta transação administrativa
+        // Poderia ser um novo modelo "AdminTransaction" ou "ManualBalanceAdjustment"
+
+        // Notificar o usuário via Socket.io
+        io.to(user._id.toString()).emit('balanceUpdate', {
+            newBalance: user.balance,
+            message: `${amount} MT adicionado à sua conta pelo administrador. Notas: ${adminNotes || 'N/A'}`
+        });
+
+        res.status(200).json({ message: `Saldo de ${amount} MT adicionado ao usuário ${user.username}.`, newBalance: user.balance });
+    }
+    catch (error) {
+        console.error('Erro ao adicionar saldo manualmente:', error);
+        res.status(500).json({ message: 'Erro no servidor ao adicionar saldo.' });
+    }
+};
+
+/**
+ * @desc Remover saldo manualmente de um usuário (apenas para admin)
+ * @route POST /api/admin/users/:userId/remove-balance
+ * @access Private/Admin
+ */
+const removeBalance = async (req, res) => {
+    const { userId } = req.params;
+    const { amount, adminNotes } = req.body;
+
+    if (!amount || amount <= 0) {
+        return res.status(400).json({ message: 'Valor inválido para remover saldo.' });
+    }
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        if (user.balance < amount) {
+            return res.status(400).json({ message: 'Saldo insuficiente para remover este valor.' });
+        }
+
+        user.balance -= amount;
+        await user.save();
+
+        // Opcional: registrar esta transação administrativa
+
+        // Notificar o usuário via Socket.io
+        io.to(user._id.toString()).emit('balanceUpdate', {
+            newBalance: user.balance,
+            message: `${amount} MT removido da sua conta pelo administrador. Razão: ${adminNotes || 'N/A'}`
+        });
+
+        res.status(200).json({ message: `Saldo de ${amount} MT removido do usuário ${user.username}.`, newBalance: user.balance });
+    }
+    catch (error) {
+        console.error('Erro ao remover saldo manualmente:', error);
+        res.status(500).json({ message: 'Erro no servidor ao remover saldo.' });
+    }
+};
+
+/**
+ * @desc Obter partidas ao vivo (apenas para admin)
+ * @route GET /api/admin/games/live
+ * @access Private/Admin
+ */
+const getLiveGames = async (req, res) => {
+    try {
+        const liveGames = await Game.find({ status: 'in-progress' })
+            .populate('players.userId', 'username avatar')
+            .select('-boardState'); // Não retornar o boardState completo para visão geral
+
+        res.status(200).json(liveGames);
+    }
+    catch (error) {
+        console.error('Erro ao obter partidas ao vivo:', error);
+        res.status(500).json({ message: 'Erro no servidor ao obter partidas ao vivo.' });
+    }
+};
+
+/**
+ * @desc Obter partidas encerradas (apenas para admin)
+ * @route GET /api/admin/games/completed
+ * @access Private/Admin
+ */
+const getCompletedGames = async (req, res) => {
+    try {
+        const completedGames = await Game.find({ status: 'completed' })
+            .populate('players.userId', 'username avatar')
+            .populate('winner', 'username')
+            .populate('loser', 'username')
+            .sort({ endTime: -1 })
+            .select('-boardState'); // Não retornar o boardState completo para visão geral
+
+        res.status(200).json(completedGames);
+    }
+    catch (error) {
+        console.error('Erro ao obter partidas encerradas:', error);
+        res.status(500).json({ message: 'Erro no servidor ao obter partidas encerradas.' });
+    }
+};
+
+/**
+ * @desc Obter resumo financeiro da plataforma (apenas para admin)
+ * @route GET /api/admin/summary
+ * @access Private/Admin
+ */
+const getPlatformFinancialSummary = async (req, res) => {
+    try {
+        const totalDepositedResult = await Deposit.aggregate([
+            { $match: { status: 'approved' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const totalDeposited = totalDepositedResult.length > 0 ? totalDepositedResult[0].total : 0;
+
+        const totalWithdrawnResult = await Withdrawal.aggregate([
+            { $match: { status: 'approved' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const totalWithdrawn = totalWithdrawnResult.length > 0 ? totalWithdrawnResult[0].total : 0;
+
+        // Total ganho em partidas por usuários (valor total das apostas vencedoras)
+        // Isso é o total que os usuários receberam diretamente das apostas dos adversários, antes da comissão.
+        // Para calcular a "comissão de plataforma" de 10% do valor ganho,
+        // é melhor somar a `platformCommissionEarned` de todos os usuários.
+        const totalUserWinsAggregate = await User.aggregate([
+            { $group: { _id: null, totalPlatformCommission: { $sum: '$platformCommissionEarned' } } }
+        ]);
+        const totalPlatformCommission = totalUserWinsAggregate.length > 0 ? totalUserWinsAggregate[0].totalPlatformCommission : 0;
+
+        // Saldo total de todos os usuários
+        const totalUserBalanceResult = await User.aggregate([
+            { $group: { _id: null, total: { $sum: '$balance' } } }
+        ]);
+        const totalUserBalance = totalUserBalanceResult.length > 0 ? totalUserBalanceResult[0].total : 0;
+
+
+        res.status(200).json({
+            totalDeposited,
+            totalWithdrawn,
+            totalPlatformCommission, // Comissão que a plataforma já "ganhou" das partidas
+            totalNetBalanceOnPlatform: totalDeposited - totalWithdrawn, // Balanço líquido total (histórico)
+            totalUsersCurrentBalance: totalUserBalance // Saldo atual de todos os usuários somados
+        });
+
+    }
+    catch (error) {
+        console.error('Erro ao obter resumo financeiro:', error);
+        res.status(500).json({ message: 'Erro no servidor ao obter resumo financeiro.' });
+    }
+};
+
+/**
+ * @desc Obter configurações da plataforma (apenas para admin)
+ * @route GET /api/admin/settings
+ * @access Private/Admin
+ */
+const getPlatformSettings = async (req, res) => {
+    try {
+        let settings = await PlatformSettings.findOne();
+        if (!settings) {
+            // Se não houver configurações, cria uma com valores padrão
+            settings = await PlatformSettings.create({});
+        }
+        res.status(200).json(settings);
+    }
+    catch (error) {
+        console.error('Erro ao obter configurações da plataforma:', error);
+        res.status(500).json({ message: 'Erro no servidor ao obter configurações.' });
+    }
+};
+
+/**
+ * @desc Atualizar configurações da plataforma (apenas para admin)
+ * @route PUT /api/admin/settings
+ * @access Private/Admin
+ */
+const updatePlatformSettings = async (req, res) => {
+    const { minDeposit, maxDeposit, maxBet, commissionRate, gameRulesText, platformName, contactEmail } = req.body;
+
+    try {
+        let settings = await PlatformSettings.findOne();
+        if (!settings) {
+            settings = await PlatformSettings.create({}); // Cria se não existir
+        }
+
+        // Atualiza apenas os campos fornecidos no body
+        if (minDeposit !== undefined) settings.minDeposit = minDeposit;
+        if (maxDeposit !== undefined) settings.maxDeposit = maxDeposit;
+        if (maxBet !== undefined) settings.maxBet = maxBet;
+        if (commissionRate !== undefined) settings.commissionRate = commissionRate;
+        if (gameRulesText !== undefined) settings.gameRulesText = gameRulesText;
+        if (platformName !== undefined) settings.platformName = platformName;
+        if (contactEmail !== undefined) settings.contactEmail = contactEmail;
+        // Adicionar outros campos de configuração aqui
+
+        await settings.save();
+
+        res.status(200).json({ message: 'Configurações da plataforma atualizadas com sucesso!', settings });
+    }
+    catch (error) {
+        console.error('Erro ao atualizar configurações da plataforma:', error);
+        res.status(500).json({ message: 'Erro no servidor ao atualizar configurações.' });
+    }
+};
 
 // --- EXPORTAÇÕES ---
 module.exports = {
@@ -1570,3 +1767,7 @@ module.exports = {
     updatePlatformSettings,
     getPlatformSettings,
 };
+}
+
+---
+
