@@ -425,27 +425,25 @@
             player2InfoDiv.classList.remove('current-turn');
             
             // Verifica se currentPlayerTurnId está definido e se o jogador existe antes de comparar
-            if (currentPlayerTurnId && player1 && String(currentPlayerTurnId) === String(player1.id)) { // Usando .id conforme backend mapeia
+            if (currentPlayerTurnId && player1 && String(currentPlayerTurnId) === String(player1.id)) {
                 player1InfoDiv.classList.add('current-turn');
-            } else if (currentPlayerTurnId && player2 && String(currentPlayerTurnId) === String(player2.id)) { // Usando .id
+            } else if (currentPlayerTurnId && player2 && String(currentPlayerTurnId) === String(player2.id)) {
                 player2InfoDiv.classList.add('current-turn');
             }
 
             switch(gameStatus) {
                 case 'in-progress':
                     let turnPlayerName = 'N/A';
-                    // Verifica se currentPlayerTurnId está definido e se os objetos player1/player2 existem E têm username
-                    if (currentPlayerTurnId && player1 && player1.username && String(currentPlayerTurnId) === String(player1.id)) { // Usando .id
+                    if (currentPlayerTurnId && player1 && player1.username && String(currentPlayerTurnId) === String(player1.id)) {
                         turnPlayerName = player1.username;
-                    } else if (currentPlayerTurnId && player2 && player2.username && String(currentPlayerTurnId) === String(player2.id)) { // Usando .id
+                    } else if (currentPlayerTurnId && player2 && player2.username && String(currentPlayerTurnId) === String(player2.id)) {
                         turnPlayerName = player2.username;
                     }
                     gameStatusMessage.textContent = `É a vez de ${turnPlayerName}!`;
                     gameStatusMessage.className = 'game-status-message info';
                     break;
                 case 'completed':
-                    // Para o estado "completed" a mensagem final é tipicamente do `gameEnded`
-                    gameStatusMessage.textContent = `Partida Concluída!`;
+                    gameStatusMessage.textContent = `Partida Concluída!`; // Mensagem temporária antes do gameEnded
                     gameStatusMessage.className = 'game-status-message info';
                     leaveGameBtn.textContent = 'Voltar para o Lobby';
                     break;
@@ -847,27 +845,24 @@
             currentPlayerTurnId = data.currentPlayer;
             gameStatus = data.status;
 
-            // ATENÇÃO AQUI: data.players JÁ É UM ARRAY DE OBJETOS POPULADOS (do backend via .map)
-            // data.players[0] é o Jogador 1 (Brancas), data.players[1] é o Jogador 2 (Pretas)
-            // Certifique-se de que os índices 0 e 1 existem.
-            player1 = data.players[0] || null; // Atribui o objeto completo ou null
-            player2 = data.players[1] || null; // Atribui o objeto completo ou null
+            // Atribuição de players: Certifica-se que data.players tem pelo menos 2 elementos
+            player1 = data.players[0] || null;
+            player2 = data.players[1] || null;
 
-            // Determine a cor do jogador local. Garante que 'user' e os objetos 'player' existam.
+            // Determina a cor do jogador local
             localPlayerColor = null; 
-            if (user && player1 && String(user.id) === String(player1.id)) { // Usar .id conforme backend mapeia _id
+            if (user && player1 && String(user.id) === String(player1.id)) {
                 localPlayerColor = 'white';
-            } else if (user && player2 && String(user.id) === String(player2.id)) { // Usar .id
+            } else if (user && player2 && String(user.id) === String(player2.id)) {
                 localPlayerColor = 'black';
             } else {
                 console.warn('Usuário atual não encontrado como jogador da partida. Possível espectador ou erro.');
-                // Você pode adicionar lógica aqui para espectador ou redirecionar.
             }
 
             betAmountDisplay.textContent = `${data.betAmount.toFixed(2)} MT`;
             
-            renderBoard(); // Redesenha o tabuleiro com o novo estado
-            updatePlayerInfoUI(); // Atualiza informações dos jogadores e indicador de vez
+            renderBoard();
+            updatePlayerInfoUI(); // Isso vai atualizar o nome do oponente e o turno
 
             selectedPiece = null;
             clearHighlights();
@@ -885,7 +880,6 @@
         socket.on('gameError', (data) => {
             console.error('Erro de jogo:', data.message);
             showMessage(gameMessageDiv, `Erro: ${data.message}`, 'error');
-            // Re-solicita o estado do jogo para sincronizar com o servidor
             socket.emit('joinGame', { gameId: currentGameId, userId: user.id }); 
         });
 
@@ -893,10 +887,9 @@
             console.log('Partida Encerrada:', data);
             gameStatus = 'completed';
             let winnerName = 'N/A';
-            // Garante que player1 e player2 já estão populados
             if (data.winnerId && player1 && player2) { 
-                winnerName = (String(data.winnerId) === String(player1.id)) ? player1.username : // Usar .id
-                             ((String(data.winnerId) === String(player2.id)) ? player2.username : 'Oponente'); // Usar .id
+                winnerName = (String(data.winnerId) === String(player1.id)) ? player1.username : 
+                             ((String(data.winnerId) === String(player2.id)) ? player2.username : 'Oponente');
                 gameStatusMessage.textContent = `Partida Concluída! Vencedor: ${winnerName}. Razão: ${data.reason || 'Fim de jogo'}.`;
                 gameStatusMessage.className = `game-status-message ${String(data.winnerId) === String(player1.id) ? 'white-wins' : 'black-wins'}`;
             } else {
@@ -912,8 +905,6 @@
         });
 
         socket.on('playerJoined', (data) => {
-            // Esta notificação pode ser mais útil para o criador da aposta
-            // O estado do jogo (gameState) já vai indicar o oponente e status 'in-progress'
             if (user && String(data.userId) !== String(user.id)) {
                 showMessage(gameMessageDiv, `Seu oponente entrou na sala!`, 'info');
             }
