@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-MZ">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainSkill - Minhas Transações</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding-bottom: 60px; /* Espaço para a bottom bar */
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .header {
+            display: none; /* Oculta a header original */
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column; /* Colunas para organizar seções */
+            gap: 20px;
+            max-width: 1000px;
+            margin: 20px auto;
+        }
+        
+        .section-card {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            box-sizing: border-box; /* Garante que padding não aumente a largura total */
+        }
+        .section-card h3 {
+            color: #4CAF50;
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .current-balance {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #555;
+        }
+        .current-balance span {
+            color: #4CAF50;
+            font-size: 1.5em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: calc(100% - 22px);
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff; /* Azul para ações */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        .transaction-history {
+            margin-top: 30px;
+        }
+        .transaction-history table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .transaction-history th, .transaction-history td {
+            border: 1px solid #eee;
+            padding: 12px;
+            text-align: left;
+        }
+        .transaction-history th {
+            background-color: #f9f9f9;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .transaction-history td.status-pending { color: #ffc107; font-weight: bold; } /* Amarelo */
+        .transaction-history td.status-approved { color: #28a745; font-weight: bold; } /* Verde */
+        .transaction-history td.status-rejected { color: #dc3545; font-weight: bold; } /* Vermelho */
+
+
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+            text-align: center;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        
+        /* Bottom Bar Styles */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 60px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .bottom-bar a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            flex: 1;
+            text-align: center;
+            padding: 5px 0;
+        }
+        .bottom-bar a:hover {
+            background-color: #45a049;
+        }
+        .bottom-bar a.active {
+            background-color: #3e8e41;
+        }
+        .bottom-bar i {
+            font-size: 24px;
+            margin-bottom: 3px;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 15px;
+                margin: 15px auto;
+            }
+            .header {
+                display: none;
+            }
+            .bottom-bar {
+                display: flex;
+            }
+            body {
+                padding-bottom: 60px;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .header {
+                background-color: #4CAF50;
+                color: white;
+                padding: 15px 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 24px;
+            }
+            .header nav a {
+                color: white;
+                text-decoration: none;
+                margin-left: 20px;
+                font-weight: bold;
+                transition: color 0.3s ease;
+            }
+            .header nav a:hover {
+                color: #d4edda;
+            }
+            .bottom-bar {
+                display: none;
+            }
+            body {
+                padding-bottom: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BrainSkill</h1>
+        <nav>
+            <a href="dashboard.html">Lobby</a>
+            <a href="profile.html">Perfil</a>
+            <a href="transactions.html">Transações</a>
+            <a href="game-history.html">Histórico de Jogos</a>
+            <a href="ranking.html">Ranking</a>
+            <a href="#" id="logoutBtnDesktop">Sair</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <section class="section-card">
+            <h3>Saldo Atual</h3>
+            <p class="current-balance">Seu saldo atual: <span id="userBalance">Carregando...</span> MT</p>
+        </section>
+
+        <section class="section-card">
+            <h3>Solicitar Depósito</h3>
+            <form id="depositForm">
+                <div class="form-group">
+                    <label for="depositAmount">Valor do Depósito (MT):</label>
+                    <input type="number" id="depositAmount" name="depositAmount" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="depositMethod">Método:</label>
+                    <select id="depositMethod" name="depositMethod" required>
+                        <option value="M-Pesa">M-Pesa</option>
+                        <option value="e-Mola">e-Mola</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="depositPhoneNumber">Número de Telefone:</label>
+                    <input type="text" id="depositPhoneNumber" name="depositPhoneNumber" placeholder="Ex: 84xxxxxxx ou 86xxxxxxx" required>
+                </div>
+                <button type="submit">Solicitar Depósito</button>
+            </form>
+            <div id="depositMessage" class="message"></div>
+        </section>
+
+        <section class="section-card">
+            <h3>Solicitar Levantamento</h3>
+            <form id="withdrawalForm">
+                <div class="form-group">
+                    <label for="withdrawalAmount">Valor do Levantamento (MT):</label>
+                    <input type="number" id="withdrawalAmount" name="withdrawalAmount" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="withdrawalMethod">Método:</label>
+                    <select id="withdrawalMethod" name="withdrawalMethod" required>
+                        <option value="M-Pesa">M-Pesa</option>
+                        <option value="e-Mola">e-Mola</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="withdrawalPhoneNumber">Número de Telefone:</label>
+                    <input type="text" id="withdrawalPhoneNumber" name="withdrawalPhoneNumber" placeholder="Ex: 84xxxxxxx ou 86xxxxxxx" required>
+                </div>
+                <button type="submit">Solicitar Levantamento</button>
+            </form>
+            <div id="withdrawalMessage" class="message"></div>
+        </section>
+
+        <section class="section-card transaction-history">
+            <h3>Histórico de Transações</h3>
+            <div id="historyTableContainer">
+                <p>Carregando histórico...</p>
+            </div>
+            <div id="historyMessage" class="message"></div>
+        </section>
+    </div>
+
+    <div class="bottom-bar">
+        <a href="dashboard.html"> Lobby </a>
+        <a href="profile.html"> Perfil </a>
+        <a href="transactions.html" class="active"> Transações </a>
+        <a href="game-history.html"> Jogos </a>
+        <a href="#" id="logoutBtnMobile"> Sair </a>
+    </div>
+
+    <script>
+        const backendUrl = 'https://brainskillmiz23.onrender.com';
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user'));
+
+        const userBalanceSpan = document.getElementById('userBalance');
+        const depositForm = document.getElementById('depositForm');
+        const depositMessageDiv = document.getElementById('depositMessage');
+        const withdrawalForm = document.getElementById('withdrawalForm');
+        const withdrawalMessageDiv = document.getElementById('withdrawalMessage');
+        const historyTableContainer = document.getElementById('historyTableContainer');
+        const historyMessageDiv = document.getElementById('historyMessage');
+
+        const logoutBtnDesktop = document.getElementById('logoutBtnDesktop');
+        const logoutBtnMobile = document.getElementById('logoutBtnMobile');
+
+        if (!token || !user) {
+            window.location.href = 'index.html';
+        }
+
+        const showMessage = (element, msg, type) => {
+            element.textContent = msg;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+            setTimeout(() => { element.style.display = 'none'; }, 5000);
+        };
+
+        const fetchBalance = async () => {
+            try {
+                const response = await fetch(`${backendUrl}/api/balance`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    userBalanceSpan.textContent = data.balance.toFixed(2);
+                } else {
+                    userBalanceSpan.textContent = 'Erro';
+                    showMessage(historyMessageDiv, data.message || 'Erro ao carregar saldo.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao buscar saldo:', error);
+                userBalanceSpan.textContent = 'Erro';
+                showMessage(historyMessageDiv, 'Erro de conexão ao buscar saldo.', 'error');
+            }
+        };
+
+        const fetchTransactionHistory = async () => {
+            try {
+                historyTableContainer.innerHTML = '<p>Carregando histórico...</p>';
+                const response = await fetch(`${backendUrl}/api/transactions/history`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayTransactionHistory(data.history);
+                } else {
+                    showMessage(historyMessageDiv, data.message || 'Erro ao carregar histórico.', 'error');
+                    historyTableContainer.innerHTML = '<p>Não foi possível carregar o histórico de transações.</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao buscar histórico de transações:', error);
+                showMessage(historyMessageDiv, 'Erro de conexão ao buscar histórico de transações.', 'error');
+                historyTableContainer.innerHTML = '<p>Erro ao conectar com o servidor.</p>';
+            }
+        };
+
+        const displayTransactionHistory = (history) => {
+            if (history.length === 0) {
+                historyTableContainer.innerHTML = '<p>Nenhuma transação encontrada.</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Valor (MT)</th>
+                            <th>Método</th>
+                            <th>Telefone</th>
+                            <th>Status</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            history.forEach(t => {
+                const type = t.amount > 0 ? (t.method ? 'Depósito' : 'Recebimento') : (t.method ? 'Levantamento' : 'Envio'); // Simplificado
+                const amount = t.amount;
+                const method = t.method || 'N/A';
+                const phoneNumber = t.phoneNumber || 'N/A';
+                const statusClass = `status-${t.status || 'pending'}`;
+                const date = new Date(t.createdAt).toLocaleDateString('pt-MZ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                tableHTML += `
+                    <tr>
+                        <td>${type}</td>
+                        <td>${amount.toFixed(2)}</td>
+                        <td>${method}</td>
+                        <td>${phoneNumber}</td>
+                        <td class="${statusClass}">${t.status || 'Pendente'}</td>
+                        <td>${date}</td>
+                    </tr>
+                `;
+            });
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            historyTableContainer.innerHTML = tableHTML;
+        };
+
+        depositForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('depositAmount').value);
+            const method = document.getElementById('depositMethod').value;
+            const phoneNumber = document.getElementById('depositPhoneNumber').value.trim();
+
+            if (amount <= 0 || !phoneNumber) {
+                showMessage(depositMessageDiv, 'Por favor, preencha todos os campos corretamente.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${backendUrl}/api/deposit-request`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ amount, method, phoneNumber })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(depositMessageDiv, data.message, 'success');
+                    depositForm.reset();
+                    fetchTransactionHistory(); // Atualiza o histórico
+                } else {
+                    showMessage(depositMessageDiv, data.message || 'Erro ao solicitar depósito.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao solicitar depósito:', error);
+                showMessage(depositMessageDiv, 'Erro de conexão ao solicitar depósito. Tente novamente.', 'error');
+            }
+        });
+
+        withdrawalForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('withdrawalAmount').value);
+            const method = document.getElementById('withdrawalMethod').value;
+            const phoneNumber = document.getElementById('withdrawalPhoneNumber').value.trim();
+
+            if (amount <= 0 || !phoneNumber) {
+                showMessage(withdrawalMessageDiv, 'Por favor, preencha todos os campos corretamente.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${backendUrl}/api/withdraw-request`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ amount, method, phoneNumber })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(withdrawalMessageDiv, data.message, 'success');
+                    withdrawalForm.reset();
+                    fetchTransactionHistory(); // Atualiza o histórico
+                    fetchBalance(); // Atualiza o saldo, pois o valor pode ter sido "bloqueado" ou verificado
+                } else {
+                    showMessage(withdrawalMessageDiv, data.message || 'Erro ao solicitar levantamento.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao solicitar levantamento:', error);
+                showMessage(withdrawalMessageDiv, 'Erro de conexão ao solicitar levantamento. Tente novamente.', 'error');
+            }
+        });
+
+        const handleLogout = (e) => {
+            e.preventDefault();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('currentGameId');
+            window.location.href = 'index.html';
+        };
+        if (logoutBtnDesktop) logoutBtnDesktop.addEventListener('click', handleLogout);
+        if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', handleLogout);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchBalance();
+            fetchTransactionHistory();
+        });
+    </script>
+</body>
+</html>
