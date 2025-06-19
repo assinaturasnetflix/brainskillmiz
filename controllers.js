@@ -11,7 +11,7 @@ const { v4: uuidv4 } = require('uuid'); // Para gerar códigos de recuperação 
 
 // --- Configurações (devem vir de variáveis de ambiente no .env) ---
 const JWT_SECRET = process.env.JWT_SECRET;
-const CLOUD_NAME = process.env.CLOUD_NAME;
+const CLOUDINARY_NAME = process.env.CLOUDINARY_NAME;
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const EMAIL_USER = process.env.EMAIL_USER;
