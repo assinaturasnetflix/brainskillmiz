@@ -13,7 +13,7 @@ console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Carregada' : 'NÃO CARREG
 console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Carregada' : 'NÃO CARREGADA');
 console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'Carregada' : 'NÃO CARREGADA');
 console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'Carregada' : 'NÃO CARREGADA');
-console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? 'Carregada' : 'NÃO CARREGADA');
+console.log('CLOUDINARY_NAME:', process.env.CLOUDINARY_NAME ? 'Carregada' : 'NÃO CARREGADA');
 console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? 'Carregada' : 'NÃO CARREGADA');
 console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? 'Carregada' : 'NÃO CARREGADA');
 console.log('PORT:', process.env.PORT ? 'Carregada' : 'NÃO CARREGADA');
