@@ -13,14 +13,15 @@ const server = http.createServer(app);
 // Configuração do Socket.IO para aceitar conexões de qualquer origem durante o desenvolvimento
 const io = socketio(server, {
     cors: {
-        origin: "*", // Permitir qualquer origem para o frontend (ajuste em produção)
+        origin: "*", // Permitir qualquer origem para o frontend (ajuste em produção para a URL do seu frontend)
         methods: ["GET", "POST"]
     }
 });
 
+// Importar rotas e controladores e modelos
 const routes = require('./routes');
-const { User, Game, LobbyRoom } = require('./models'); // Importar modelos necessários
-const { validateMove, applyMove, checkGameEnd, getPieceColor } = require('./controllers'); // Importar lógica de jogo do controllers
+const controllers = require('./controllers'); // Importar controllers para usar as funções de lógica de jogo
+const { User, Game, LobbyRoom, Setting } = require('./models'); // Importar modelos necessários
 
 // --- Conexão ao Banco de Dados MongoDB ---
 mongoose.connect(process.env.MONGODB_URI)
@@ -36,10 +37,10 @@ app.use(express.json()); // Habilita o parsing de JSON no corpo das requisiçõe
 app.use(express.urlencoded({ extended: true })); // Habilita o parsing de URL-encoded bodies
 app.use(fileupload({
     useTempFiles: true, // Usa arquivos temporários para upload
-    tempFileDir: '/tmp/' // Diretório para armazenar arquivos temporários
+    tempFileDir: '/tmp/' // Diretório para armazenar arquivos temporários (necessário para alguns hosts como Render)
 }));
 
-// --- Rotas da API ---
+// --- Rotas da API REST ---
 app.use('/api', routes); // Prefixo '/api' para todas as rotas definidas em routes.js
 
 // --- Lógica de Socket.IO ---
@@ -47,14 +48,14 @@ io.on('connection', socket => {
     console.log(`Novo cliente conectado: ${socket.id}`);
 
     // Um usuário se conecta ao lobby geral para ver as apostas
-    socket.on('joinLobby', async () => {
+    socket.on('joinLobby', () => {
         socket.join('lobby');
         console.log(`Cliente ${socket.id} entrou no lobby.`);
-        // O cliente deve solicitar a lista de lobbies via REST API ao entrar na página do lobby.
-        // As atualizações de lobby (criação/aceitação de apostas) serão emitidas globalmente.
+        // A lista de lobbies é carregada via REST API inicialmente no frontend.
+        // As atualizações globais de lobby (criação/aceitação de apostas) serão emitidas globalmente para 'lobby' room.
     });
 
-    // Um usuário cria ou entra em uma sala de jogo específica
+    // Um cliente se junta a uma sala de jogo específica (ao carregar game.html, ou após aceitar aposta)
     socket.on('joinGame', async ({ gameId, userId }) => {
         if (!gameId || !userId) {
             console.error(`joinGame: gameId ou userId ausente para ${socket.id}`);
@@ -62,6 +63,7 @@ io.on('connection', socket => {
         }
 
         try {
+            // Popula os jogadores para ter username e avatar
             const game = await Game.findById(gameId).populate('players', 'username avatar');
             if (!game) {
                 console.error(`Jogo não encontrado para gameId: ${gameId}`);
@@ -69,34 +71,39 @@ io.on('connection', socket => {
                 return;
             }
 
-            // Verifica se o usuário é um dos jogadores da partida
+            // Verifica se o usuário é um dos jogadores da partida. Isso é importante para acesso.
             const isPlayer = game.players.some(p => String(p._id) === String(userId));
             if (!isPlayer) {
-                console.error(`Usuário ${userId} não é jogador da partida ${gameId}`);
-                socket.emit('gameError', { message: 'Você não é um jogador desta partida.' });
+                console.warn(`Usuário ${userId} não é jogador da partida ${gameId}.`);
+                // Poderia emitir um erro ou redirecionar o cliente se não for um jogador permitido.
+                socket.emit('gameError', { message: 'Você não tem permissão para entrar nesta partida.' });
                 return;
             }
 
-            socket.join(gameId); // Cada partida tem sua própria sala Socket.IO
-            console.log(`Usuário ${userId} (${socket.id}) entrou na sala do jogo: ${gameId}`);
+            socket.join(gameId); // Adiciona o socket à sala da partida
+            console.log(`Usuário ${userId} (${socket.id}) entrou/reconectou na sala do jogo: ${gameId}`);
 
-            // Enviar o estado atual do jogo para o jogador que acabou de entrar
-            io.to(gameId).emit('gameState', {
+            // SEMPRE envie o estado mais recente do jogo para o cliente que acabou de entrar/reconectar
+            // Emitir APENAS para o socket que acabou de se conectar (socket.id)
+            io.to(socket.id).emit('gameState', {
                 boardState: game.boardState,
-                currentPlayer: game.currentPlayer,
+                currentPlayer: game.currentPlayer, // ID do MongoDB do jogador atual
                 players: game.players.map(p => ({
-                    id: p._id,
+                    id: p._id.toString(), // Mapeia _id para id para consistência no frontend
                     username: p.username,
                     avatar: p.avatar
                 })),
                 status: game.status,
                 betAmount: game.betAmount,
-                winner: game.winner
+                winner: game.winner ? game.winner.toString() : null,
+                loser: game.loser ? game.loser.toString() : null,
             });
 
-            // Notificar o outro jogador que o adversário entrou na sala (se ainda não estiver lá)
-            io.to(gameId).emit('playerJoined', { userId });
-
+            // Opcional: Notificar outros jogadores na sala que um adversário entrou/reconectou
+            // Só se o jogo estiver pendente e agora tiver 2 jogadores ativos, por exemplo.
+            // A notificação de 'playerJoined' pode ser usada para UI "Esperando oponente..." -> "Partida Iniciada".
+            // No seu caso, o 'gameState' já vai mudar o status para 'in-progress' ou 'completed'.
+            // io.to(gameId).emit('playerJoined', { userId }); 
 
         } catch (error) {
             console.error(`Erro ao juntar-se ao jogo ${gameId}:`, error);
@@ -104,38 +111,43 @@ io.on('connection', socket => {
         }
     });
 
-    // Evento de movimento de peça
+    // Evento de movimento de peça (do cliente para o servidor)
     socket.on('makeMove', async ({ gameId, userId, from, to }) => {
         try {
-            let game = await Game.findById(gameId);
+            // Buscar o estado atual do jogo do banco de dados e popular jogadores
+            let game = await Game.findById(gameId).populate('players', 'username avatar');
 
             if (!game || game.status !== 'in-progress') {
                 socket.emit('gameError', { message: 'Partida não encontrada ou não está em andamento.' });
                 return;
             }
 
-            // Verifica se é a vez do jogador que está tentando mover
+            // Verificar se é a vez do jogador que está tentando mover
             if (String(game.currentPlayer) !== String(userId)) {
                 socket.emit('gameError', { message: 'Não é a sua vez de jogar.' });
                 return;
             }
 
-            const player1Id = game.players[0];
-            const player2Id = game.players[1];
+            // Identificar as IDs dos jogadores da partida para determinar a cor
+            const player1Id = game.players[0]._id; // Jogador 1 (Brancas)
+            const player2Id = game.players[1]._id; // Jogador 2 (Pretas)
             let currentPlayerColor;
 
-            // Determinar a cor do jogador atual (Brancas ou Pretas)
-            // Assumimos que o criador do jogo (player1) é sempre branco e o player2 é preto.
             if (String(userId) === String(player1Id)) {
                 currentPlayerColor = 'white';
             } else if (String(userId) === String(player2Id)) {
                 currentPlayerColor = 'black';
             } else {
+                // Jogador não faz parte da partida ou ID inválido
                 socket.emit('gameError', { message: 'Você não é um jogador válido desta partida.' });
                 return;
             }
 
-            // Validar o movimento usando a lógica do controllers
+            // --- Lógica de Validação e Aplicação do Movimento (do controllers.js) ---
+            // Importar funções de lógica de jogo dentro do escopo ou garantir que já estejam acessíveis
+            const { validateMove, applyMove, checkGameEnd, getPieceColor } = controllers; 
+
+            // Validar o movimento no backend (autoritário)
             const validationResult = validateMove(game.boardState, from, to, currentPlayerColor);
 
             if (!validationResult.isValid) {
@@ -143,20 +155,22 @@ io.on('connection', socket => {
                 return;
             }
 
-            // Aplicar o movimento ao tabuleiro
+            // Aplicar o movimento ao estado do tabuleiro no objeto 'game' do servidor
             const newBoardState = applyMove(game.boardState, from, to);
 
-            // Registrar o movimento
+            // Registrar o movimento no histórico da partida
             game.moves.push({
                 player: userId,
-                from: { row: from.row, col: from.col },
-                to: { row: to.row, col: to.col },
-                capturedPieces: validationResult.isCapture ? [`${getPieceColor(game.boardState[from.row + (to.row - from.row) / 2][from.col + (to.col - from.col) / 2])}_piece`] : [] // Apenas para registro, mais robusto com IDs de peça
+                from: { row: from.r, col: from.c },
+                to: { row: to.r, col: to.c },
+                // A lista de peças capturadas aqui pode ser simplificada ou mais detalhada
+                capturedPieces: validationResult.isCapture ? [`${getPieceColor(game.boardState[from.r + (to.r - from.r) / 2][from.c + (to.c - from.c) / 2])}_piece`] : [] 
             });
-            game.boardState = newBoardState;
+            game.boardState = newBoardState; // Atualiza o estado do tabuleiro no modelo
 
-            // Verificar o fim do jogo
-            const gameEndResult = checkGameEnd(game.boardState, getPieceColor(newBoardState[to.row][to.col]) === 'white' ? 'black' : 'white'); // Verifica o próximo jogador
+            // --- Verificar o Fim do Jogo ---
+            const nextPlayerColor = currentPlayerColor === 'white' ? 'black' : 'white';
+            const gameEndResult = checkGameEnd(game.boardState, nextPlayerColor);
             let winnerId = null;
             let loserId = null;
 
@@ -164,12 +178,11 @@ io.on('connection', socket => {
                 game.status = 'completed';
                 game.completedAt = Date.now();
 
-                if (gameEndResult.winnerColor === currentPlayerColor) {
-                    // O jogador que acabou de fazer o movimento venceu
+                // Determina o vencedor com base na regra de fim de jogo
+                if (gameEndResult.winnerColor === currentPlayerColor) { // O jogador que acabou de mover venceu (ex: oponente sem peças)
                     winnerId = userId;
                     loserId = (String(player1Id) === String(userId)) ? player2Id : player1Id;
-                } else {
-                    // O adversário venceu (porque o jogador atual não tem mais movimentos válidos)
+                } else { // O oponente venceu (ex: jogador atual sem movimentos válidos)
                     winnerId = (String(player1Id) === String(userId)) ? player2Id : player1Id;
                     loserId = userId;
                 }
@@ -179,60 +192,99 @@ io.on('connection', socket => {
 
                 // Creditando o ganhador e aplicando comissão
                 const winnerUser = await User.findById(winnerId);
-                const loserUser = await User.findById(loserId);
+                // const loserUser = await User.findById(loserId); // O saldo do perdedor já foi debitado no lobby
 
-                const commissionRate = await Setting.findOne({ name: 'platformCommissionRate' });
-                const actualCommissionRate = commissionRate ? parseFloat(commissionRate.value) : 0.10; // Default 10%
+                const commissionSetting = await Setting.findOne({ name: 'platformCommissionRate' });
+                const commissionRate = commissionSetting ? parseFloat(commissionSetting.value) : 0.10; // Padrão 10%
 
-                // O valor total do pote é 2 * betAmount (um de cada jogador)
-                const totalPot = game.betAmount * 2;
-                const winnerReceives = totalPot - (game.betAmount * actualCommissionRate); // Vencedor recebe o pote menos a comissão sobre o valor "ganho" (que é o betAmount do oponente)
-
+                const totalPot = game.betAmount * 2; // O pote total da aposta
+                // O vencedor recebe o valor total da aposta do perdedor, menos a comissão sobre esse valor.
+                // Ou, o valor total do pote, menos a comissão sobre o total do pote.
+                // A comissão é 10% do valor ganho de um usuário em cada partida.
+                // Se um usuário aposta X e ganha, ele ganha o X do outro jogador.
+                // Então, a comissão é 10% de X. O ganhador recebe X + X - (X * 0.10) = 2X - 0.10X.
+                // Se ele lucra X, a comissão é sobre o lucro X.
+                const winnerReceives = totalPot - (game.betAmount * commissionRate); 
+                
                 if (winnerUser) {
                     winnerUser.balance += winnerReceives;
                     await winnerUser.save();
-                }
-
-                // Notificar ambos os jogadores sobre o saldo atualizado (opcional, podem verificar no perfil)
-                io.to(String(winnerId)).emit('balanceUpdate', { newBalance: winnerUser.balance });
-                if (loserUser) { // O perdedor já teve seu saldo debitado ao aceitar/criar a aposta
-                    io.to(String(loserId)).emit('balanceUpdate', { newBalance: loserUser.balance });
+                    // Opcional: notificar o cliente do vencedor sobre o novo saldo
+                    // io.to(String(winnerUser._id)).emit('balanceUpdate', { newBalance: winnerUser.balance });
                 }
 
             } else {
-                // Trocar o jogador atual
+                // Se o jogo não terminou, troca o jogador atual
                 game.currentPlayer = (String(game.currentPlayer) === String(player1Id)) ? player2Id : player1Id;
             }
 
-            await game.save();
+            await game.save(); // SALVAR O ESTADO ATUALIZADO DO JOGO NO BANCO DE DADOS
 
-            // Emitir o novo estado do jogo para todos na sala
+            // Emitir o novo estado do jogo para TODOS os clientes na sala da partida
+            // Buscar novamente para garantir que os dados de 'winner' e 'loser' populados sejam os mais recentes
+            const updatedGame = await Game.findById(gameId).populate('players', 'username avatar').populate('winner', 'username').populate('loser', 'username');
+
             io.to(gameId).emit('gameState', {
-                boardState: game.boardState,
-                currentPlayer: game.currentPlayer,
-                status: game.status,
-                winner: game.winner,
-                message: validationResult.message || (gameEndResult.gameOver ? gameEndResult.reason : 'Movimento válido.')
+                boardState: updatedGame.boardState,
+                currentPlayer: updatedGame.currentPlayer, // ID do próximo jogador a mover
+                players: updatedGame.players.map(p => ({ // Garante que os objetos de jogador estejam formatados para o frontend
+                    id: p._id.toString(),
+                    username: p.username,
+                    avatar: p.avatar
+                })),
+                status: updatedGame.status,
+                betAmount: updatedGame.betAmount,
+                winner: updatedGame.winner ? updatedGame.winner._id.toString() : null, // ID do vencedor
+                loser: updatedGame.loser ? updatedGame.loser._id.toString() : null,   // ID do perdedor
             });
 
-            // Se o jogo terminou, notificar o lobby se a sala era de "in-game"
-            if (game.status === 'completed') {
-                await LobbyRoom.findOneAndUpdate({ gameId: game._id }, { status: 'closed' });
-                io.to('lobby').emit('lobbyUpdate'); // Avisa o lobby para atualizar a lista
-                io.to(gameId).emit('gameEnded', { winnerId: game.winner, loserId: game.loser, reason: gameEndResult.reason });
+            // Se o jogo terminou, notificar o lobby e emitir um evento de 'gameEnded'
+            if (updatedGame.status === 'completed' || updatedGame.status === 'cancelled') {
+                await LobbyRoom.findOneAndUpdate({ gameId: updatedGame._id }, { status: 'closed' });
+                io.to('lobby').emit('lobbyUpdate'); // Avisa o lobby para remover a aposta encerrada
+                io.to(gameId).emit('gameEnded', { 
+                    winnerId: updatedGame.winner ? updatedGame.winner._id.toString() : null, 
+                    loserId: updatedGame.loser ? updatedGame.loser._id.toString() : null, 
+                    reason: gameEndResult.reason || 'Partida finalizada.' 
+                });
             }
 
         } catch (error) {
-            console.error(`Erro ao fazer movimento no jogo ${gameId}:`, error);
-            socket.emit('gameError', { message: 'Erro interno ao processar o movimento.' });
+            console.error(`Erro no makeMove do jogo ${gameId}:`, error);
+            // Emite um erro geral para o cliente que tentou a jogada
+            socket.emit('gameError', { message: 'Erro interno ao processar o movimento. Tente novamente.' });
+            
+            // Opcional: Forçar o cliente a re-sincronizar o estado do jogo com o servidor
+            // Isso é útil se o cliente puder ter ficado com um estado inválido após o erro.
+            try {
+                const currentServerGame = await Game.findById(gameId).populate('players', 'username avatar');
+                if (currentServerGame) {
+                    io.to(socket.id).emit('gameState', { // Emitir APENAS para o cliente que errou
+                        boardState: currentServerGame.boardState,
+                        currentPlayer: currentServerGame.currentPlayer,
+                        players: currentServerGame.players.map(p => ({
+                            id: p._id.toString(),
+                            username: p.username,
+                            avatar: p.avatar
+                        })),
+                        status: currentServerGame.status,
+                        betAmount: currentServerGame.betAmount,
+                        winner: currentServerGame.winner ? currentServerGame.winner.toString() : null,
+                        loser: currentServerGame.loser ? currentServerGame.loser.toString() : null,
+                    });
+                }
+            } catch (syncError) {
+                console.error('Erro ao re-sincronizar cliente após erro de movimento:', syncError);
+            }
         }
     });
-
 
     // Evento quando um cliente se desconecta
     socket.on('disconnect', () => {
         console.log(`Cliente desconectado: ${socket.id}`);
-        // TODO: Lógica para lidar com desconexões em partidas (ex: declarar vitória por abandono)
+        // TODO: Lógica para lidar com desconexões em partidas ativas (ex: declarar vitória por abandono)
+        // Isso seria mais complexo e envolveria identificar qual jogo o socket estava,
+        // e se o oponente foi o único a desconectar.
     });
 });
 
@@ -244,7 +296,6 @@ app.get('/', (req, res) => {
 // --- Iniciar o Servidor ---
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
-
 
 /*
 Para executar este arquivo localmente:

@@ -6,6 +6,7 @@
     <title>BrainSkill - Partida de Damas</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
+        /* ... (seu CSS existente permanece o mesmo) ... */
         body {
             font-family: 'Arial', sans-serif;
             background-color: #f0f2f5;
@@ -424,19 +425,19 @@
             player2InfoDiv.classList.remove('current-turn');
             
             // Verifica se currentPlayerTurnId está definido e se o jogador existe antes de comparar
-            if (currentPlayerTurnId && player1 && String(currentPlayerTurnId) === String(player1._id)) {
+            if (currentPlayerTurnId && player1 && String(currentPlayerTurnId) === String(player1.id)) { // Usando .id conforme backend mapeia
                 player1InfoDiv.classList.add('current-turn');
-            } else if (currentPlayerTurnId && player2 && String(currentPlayerTurnId) === String(player2._id)) {
+            } else if (currentPlayerTurnId && player2 && String(currentPlayerTurnId) === String(player2.id)) { // Usando .id
                 player2InfoDiv.classList.add('current-turn');
             }
 
             switch(gameStatus) {
                 case 'in-progress':
                     let turnPlayerName = 'N/A';
-                    // Verifica se currentPlayerTurnId está definido e se os objetos player1/player2 existem
-                    if (currentPlayerTurnId && player1 && player1.username && String(currentPlayerTurnId) === String(player1._id)) {
+                    // Verifica se currentPlayerTurnId está definido e se os objetos player1/player2 existem E têm username
+                    if (currentPlayerTurnId && player1 && player1.username && String(currentPlayerTurnId) === String(player1.id)) { // Usando .id
                         turnPlayerName = player1.username;
-                    } else if (currentPlayerTurnId && player2 && player2.username && String(currentPlayerTurnId) === String(player2._id)) {
+                    } else if (currentPlayerTurnId && player2 && player2.username && String(currentPlayerTurnId) === String(player2.id)) { // Usando .id
                         turnPlayerName = player2.username;
                     }
                     gameStatusMessage.textContent = `É a vez de ${turnPlayerName}!`;
@@ -846,20 +847,21 @@
             currentPlayerTurnId = data.currentPlayer;
             gameStatus = data.status;
 
-            // ATENÇÃO AQUI: data.players JÁ DEVE SER UM ARRAY DE OBJETOS POPULADOS
-            // O backend no server.js já mapeia p._id para p.id para o frontend.
+            // ATENÇÃO AQUI: data.players JÁ É UM ARRAY DE OBJETOS POPULADOS (do backend via .map)
             // data.players[0] é o Jogador 1 (Brancas), data.players[1] é o Jogador 2 (Pretas)
-            player1 = data.players[0]; // Atribui o objeto completo do jogador 1
-            player2 = data.players[1]; // Atribui o objeto completo do jogador 2
+            // Certifique-se de que os índices 0 e 1 existem.
+            player1 = data.players[0] || null; // Atribui o objeto completo ou null
+            player2 = data.players[1] || null; // Atribui o objeto completo ou null
 
             // Determine a cor do jogador local. Garante que 'user' e os objetos 'player' existam.
             localPlayerColor = null; 
-            if (user && player1 && String(user.id) === String(player1.id)) { // Usar p.id pois o backend mapeou
+            if (user && player1 && String(user.id) === String(player1.id)) { // Usar .id conforme backend mapeia _id
                 localPlayerColor = 'white';
-            } else if (user && player2 && String(user.id) === String(player2.id)) { // Usar p.id
+            } else if (user && player2 && String(user.id) === String(player2.id)) { // Usar .id
                 localPlayerColor = 'black';
             } else {
                 console.warn('Usuário atual não encontrado como jogador da partida. Possível espectador ou erro.');
+                // Você pode adicionar lógica aqui para espectador ou redirecionar.
             }
 
             betAmountDisplay.textContent = `${data.betAmount.toFixed(2)} MT`;
@@ -873,7 +875,7 @@
 
             if (gameStatus === 'completed' || gameStatus === 'cancelled') {
                 showMessage(gameMessageDiv, `Partida ${gameStatus === 'completed' ? 'concluída!' : 'cancelada!'}`, 'info');
-            } else if (user && String(user.id) === String(currentPlayerTurnId)) {
+            } else if (user && String(user.id) === String(currentPlayerTurnId)) { 
                 showMessage(gameMessageDiv, 'É a sua vez!', 'success');
             } else {
                 showMessage(gameMessageDiv, `Vez do oponente...`, 'info');
@@ -893,8 +895,8 @@
             let winnerName = 'N/A';
             // Garante que player1 e player2 já estão populados
             if (data.winnerId && player1 && player2) { 
-                winnerName = (String(data.winnerId) === String(player1.id)) ? player1.username : // Usar p.id
-                             ((String(data.winnerId) === String(player2.id)) ? player2.username : 'Oponente'); // Usar p.id
+                winnerName = (String(data.winnerId) === String(player1.id)) ? player1.username : // Usar .id
+                             ((String(data.winnerId) === String(player2.id)) ? player2.username : 'Oponente'); // Usar .id
                 gameStatusMessage.textContent = `Partida Concluída! Vencedor: ${winnerName}. Razão: ${data.reason || 'Fim de jogo'}.`;
                 gameStatusMessage.className = `game-status-message ${String(data.winnerId) === String(player1.id) ? 'white-wins' : 'black-wins'}`;
             } else {
@@ -911,7 +913,7 @@
 
         socket.on('playerJoined', (data) => {
             // Esta notificação pode ser mais útil para o criador da aposta
-            // O estado do jogo (gameState) já vai indicar oponentes e status 'in-progress'
+            // O estado do jogo (gameState) já vai indicar o oponente e status 'in-progress'
             if (user && String(data.userId) !== String(user.id)) {
                 showMessage(gameMessageDiv, `Seu oponente entrou na sala!`, 'info');
             }
