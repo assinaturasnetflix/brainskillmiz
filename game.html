@@ -434,6 +434,7 @@
             switch(gameStatus) {
                 case 'in-progress':
                     let turnPlayerName = 'N/A';
+                    // Verifica se currentPlayerTurnId está definido e se os objetos player1/player2 existem E têm username
                     if (currentPlayerTurnId && player1 && player1.username && String(currentPlayerTurnId) === String(player1.id)) {
                         turnPlayerName = player1.username;
                     } else if (currentPlayerTurnId && player2 && player2.username && String(currentPlayerTurnId) === String(player2.id)) {
@@ -667,6 +668,7 @@
 
         // --- Lógica de Interação com o Tabuleiro ---
         const handleCellClick = (e) => {
+            // Verifica se a partida está em andamento e se é a vez do jogador local
             if (gameStatus !== 'in-progress' || !user || String(user.id) !== String(currentPlayerTurnId)) {
                 showMessage(gameMessageDiv, 'Não é a sua vez de jogar ou a partida não está ativa.', 'info');
                 return;
@@ -681,6 +683,7 @@
             const clickedPieceColor = getPieceColor(currentBoardState[clickedRow][clickedCol]);
 
             if (selectedPiece) {
+                // Uma peça já está selecionada, agora é o destino do movimento
                 const from = { r: selectedPiece.row, c: selectedPiece.col };
                 const to = { r: clickedRow, c: clickedCol };
 
@@ -689,6 +692,7 @@
                     move => move.to.r === to.r && move.to.c === to.c
                 );
                 
+                // Validação de Multi-Captura no Frontend (para UX visual)
                 if (currentMandatoryCaptures.length > 0) {
                     const isPartOfMandatoryChain = currentMandatoryCaptures.some(seq => {
                         return seq[0].from.r === from.r && seq[0].from.c === from.c && seq[0].to.r === to.r && seq[0].to.c === to.c;
@@ -773,6 +777,9 @@
                     currentMandatoryCaptures = [];
                 }
             } else {
+                // Nenhuma peça selecionada, tente selecionar uma
+                // Verifica se a partida está em andamento, se há uma peça na célula clicada,
+                // se a peça pertence ao jogador local e se é a vez dele.
                 if (gameStatus === 'in-progress' && pieceElementInClickedCell && clickedPieceColor === localPlayerColor && user && String(user.id) === String(currentPlayerTurnId)) {
                     selectedPiece = {
                         row: clickedRow,
@@ -807,6 +814,8 @@
         leaveGameBtn.addEventListener('click', () => {
             const confirmLeave = confirm("Tem certeza que deseja sair da partida? Você pode perder a aposta!");
             if (confirmLeave) {
+                // Aqui você pode adicionar lógica para notificar o servidor sobre o abandono
+                // Ex: socket.emit('forfeitGame', { gameId: currentGameId, userId: user.id });
                 localStorage.removeItem('currentGameId');
                 window.location.href = 'dashboard.html';
             }
@@ -842,14 +851,16 @@
         socket.on('gameState', (data) => {
             console.log('Estado do jogo recebido:', data);
             currentBoardState = data.boardState;
-            currentPlayerTurnId = data.currentPlayer;
+            currentPlayerTurnId = data.currentPlayer; // Já é uma string de ID
             gameStatus = data.status;
 
-            // Atribuição de players: Certifica-se que data.players tem pelo menos 2 elementos
-            player1 = data.players[0] || null;
-            player2 = data.players[1] || null;
+            // Atribuição de players: data.players já deve ser um array de objetos populados
+            // com 'id', 'username', 'avatar' conforme mapeado no backend.
+            // Certifique-se de que os índices 0 e 1 existem.
+            player1 = data.players[0] || null; // Jogador 1 (Brancas)
+            player2 = data.players[1] || null; // Jogador 2 (Pretas)
 
-            // Determina a cor do jogador local
+            // Determine a cor do jogador local.
             localPlayerColor = null; 
             if (user && player1 && String(user.id) === String(player1.id)) {
                 localPlayerColor = 'white';
@@ -857,13 +868,15 @@
                 localPlayerColor = 'black';
             } else {
                 console.warn('Usuário atual não encontrado como jogador da partida. Possível espectador ou erro.');
+                // Lógica para espectador ou redirecionamento pode ser adicionada aqui
             }
 
             betAmountDisplay.textContent = `${data.betAmount.toFixed(2)} MT`;
             
-            renderBoard();
-            updatePlayerInfoUI(); // Isso vai atualizar o nome do oponente e o turno
+            renderBoard(); // Redesenha o tabuleiro com o novo estado
+            updatePlayerInfoUI(); // Atualiza informações dos jogadores e indicador de vez
 
+            // Limpa seleção e destaques. Essencial para cada atualização do estado.
             selectedPiece = null;
             clearHighlights();
             currentMandatoryCaptures = [];
@@ -880,12 +893,13 @@
         socket.on('gameError', (data) => {
             console.error('Erro de jogo:', data.message);
             showMessage(gameMessageDiv, `Erro: ${data.message}`, 'error');
+            // Re-sincroniza o cliente com o estado atual do servidor em caso de erro
             socket.emit('joinGame', { gameId: currentGameId, userId: user.id }); 
         });
 
         socket.on('gameEnded', (data) => {
             console.log('Partida Encerrada:', data);
-            gameStatus = 'completed';
+            gameStatus = 'completed'; // Força status como concluído localmente
             let winnerName = 'N/A';
             if (data.winnerId && player1 && player2) { 
                 winnerName = (String(data.winnerId) === String(player1.id)) ? player1.username : 
@@ -907,6 +921,8 @@
         socket.on('playerJoined', (data) => {
             if (user && String(data.userId) !== String(user.id)) {
                 showMessage(gameMessageDiv, `Seu oponente entrou na sala!`, 'info');
+                // Após o oponente entrar, o servidor deve enviar um 'gameState' completo
+                // que irá atualizar os nomes e o status da partida.
             }
         });
 

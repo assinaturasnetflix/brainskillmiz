@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server, {
     cors: {
-        origin: "*",
+        origin: "*", // Permitir qualquer origem para o frontend (ajuste em produção para a URL do seu frontend)
         methods: ["GET", "POST"]
     }
 });
@@ -53,6 +53,7 @@ io.on('connection', socket => {
         }
 
         try {
+            // Popula os jogadores para ter username e avatar
             const game = await Game.findById(gameId).populate('players', 'username avatar');
             if (!game) {
                 console.error(`Jogo não encontrado para gameId: ${gameId}`);
@@ -60,6 +61,7 @@ io.on('connection', socket => {
                 return;
             }
 
+            // Verifica se o usuário é um dos jogadores da partida.
             const isPlayer = game.players.some(p => String(p._id) === String(userId));
             if (!isPlayer) {
                 console.warn(`Usuário ${userId} não é jogador da partida ${gameId}.`);
@@ -67,15 +69,16 @@ io.on('connection', socket => {
                 return;
             }
 
-            socket.join(gameId);
+            socket.join(gameId); // Adiciona o socket à sala da partida
             console.log(`Usuário ${userId} (${socket.id}) entrou/reconectou na sala do jogo: ${gameId}`);
 
-            // Sempre envie o estado mais recente do jogo para o cliente que acabou de entrar/reconectar
+            // SEMPRE envie o estado mais recente do jogo para o cliente que acabou de entrar/reconectar
+            // É crucial que 'players' seja um array de objetos completos com 'id', 'username', 'avatar'.
             io.to(socket.id).emit('gameState', {
                 boardState: game.boardState,
-                currentPlayer: game.currentPlayer,
+                currentPlayer: game.currentPlayer.toString(), // Garante que o ID do jogador atual seja uma string
                 players: game.players.map(p => ({
-                    id: p._id.toString(),
+                    id: p._id.toString(), // Converte _id para string 'id'
                     username: p.username,
                     avatar: p.avatar
                 })),
@@ -93,6 +96,7 @@ io.on('connection', socket => {
 
     socket.on('makeMove', async ({ gameId, userId, from, to }) => {
         try {
+            // Buscar o estado atual do jogo do banco de dados e popular jogadores
             let game = await Game.findById(gameId).populate('players', 'username avatar');
 
             if (!game || game.status !== 'in-progress') {
@@ -100,21 +104,24 @@ io.on('connection', socket => {
                 return;
             }
 
+            // Verificar se é a vez do jogador que está tentando mover
             if (String(game.currentPlayer) !== String(userId)) {
                 socket.emit('gameError', { message: 'Não é a sua vez de jogar.' });
                 return;
             }
 
-            const player1Obj = game.players[0]; // Jogador 1 completo
-            const player2Obj = game.players[1]; // Jogador 2 completo
+            // Encontrar os objetos completos dos jogadores 1 e 2 no array 'players'
+            // Assumimos que players[0] é o criador (brancas) e players[1] é o aceitador (pretas)
+            const player1Obj = game.players[0]; 
+            const player2Obj = game.players[1]; 
 
-            const player1Id = player1Obj._id;
-            const player2Id = player2Obj._id;
+            const player1Id = player1Obj._id.toString();
+            const player2Id = player2Obj._id.toString();
             let currentPlayerColor;
 
-            if (String(userId) === String(player1Id)) {
+            if (String(userId) === player1Id) {
                 currentPlayerColor = 'white';
-            } else if (String(userId) === String(player2Id)) {
+            } else if (String(userId) === player2Id) {
                 currentPlayerColor = 'black';
             } else {
                 socket.emit('gameError', { message: 'Você não é um jogador válido desta partida.' });
@@ -151,9 +158,9 @@ io.on('connection', socket => {
 
                 if (gameEndResult.winnerColor === currentPlayerColor) {
                     winnerId = userId;
-                    loserId = (String(player1Id) === String(userId)) ? player2Id : player1Id;
+                    loserId = (String(userId) === player1Id) ? player2Id : player1Id;
                 } else {
-                    winnerId = (String(player1Id) === String(userId)) ? player2Id : player1Id;
+                    winnerId = (String(userId) === player1Id) ? player2Id : player1Id;
                     loserId = userId;
                 }
 
@@ -175,7 +182,7 @@ io.on('connection', socket => {
 
             } else {
                 // ATENÇÃO CRÍTICA: Trocar o jogador atual para o ID DO PRÓXIMO JOGADOR
-                game.currentPlayer = (String(userId) === String(player1Id)) ? player2Id : player1Id;
+                game.currentPlayer = (String(userId) === player1Id) ? player2Id : player1Id;
             }
 
             await game.save(); // SALVAR O ESTADO ATUALIZADO DO JOGO NO BANCO DE DADOS
@@ -186,16 +193,16 @@ io.on('connection', socket => {
             // Emitir o novo estado para TODOS os clientes na sala do jogo
             io.to(gameId).emit('gameState', {
                 boardState: updatedGame.boardState,
-                currentPlayer: updatedGame.currentPlayer, // Este é o ID do jogador da próxima vez
+                currentPlayer: updatedGame.currentPlayer.toString(), // Garante que o ID do próximo jogador seja uma string
                 players: updatedGame.players.map(p => ({
-                    id: p._id.toString(),
+                    id: p._id.toString(), // Converte _id para string 'id'
                     username: p.username,
                     avatar: p.avatar
                 })),
                 status: updatedGame.status,
                 betAmount: updatedGame.betAmount,
-                winner: updatedGame.winner ? updatedGame.winner._id.toString() : null,
-                loser: updatedGame.loser ? updatedGame.loser._id.toString() : null,
+                winner: updatedGame.winner ? updatedGame.winner._id.toString() : null, // ID do vencedor
+                loser: updatedGame.loser ? updatedGame.loser._id.toString() : null,   // ID do perdedor
             });
 
             if (updatedGame.status === 'completed' || updatedGame.status === 'cancelled') {
@@ -216,9 +223,9 @@ io.on('connection', socket => {
             try {
                 const currentServerGame = await Game.findById(gameId).populate('players', 'username avatar');
                 if (currentServerGame) {
-                    io.to(socket.id).emit('gameState', {
+                    io.to(socket.id).emit('gameState', { // Emitir APENAS para o cliente que errou
                         boardState: currentServerGame.boardState,
-                        currentPlayer: currentServerGame.currentPlayer,
+                        currentPlayer: currentServerGame.currentPlayer.toString(), // Garante que seja string
                         players: currentServerGame.players.map(p => ({
                             id: p._id.toString(),
                             username: p.username,
@@ -247,3 +254,19 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+
+/*
+Para executar este arquivo localmente:
+
+1.  Certifique-se de que os arquivos `package.json`, `models.js`, `routes.js` e `controllers.js`
+    estejam no mesmo diretório.
+2.  Tenha um arquivo `.env` na raiz do projeto com as variáveis de ambiente necessárias
+    (PORT, MONGODB_URI, JWT_SECRET, EMAIL_HOST, etc., e CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET).
+3.  Instale as dependências usando `npm install`.
+4.  Para iniciar o servidor em modo de desenvolvimento com `nodemon` (auto-reload): `npm run dev`.
+5.  Para iniciar o servidor em modo de produção: `npm start`.
+
+Após iniciar o servidor, você poderá acessar a API REST e a comunicação WebSocket.
+Lembre-se que para o upload de arquivos via `express-fileupload`, as requisições
+POST/PUT para `/api/upload-avatar` devem enviar um `FormData` com o campo `avatar`.
+*/
