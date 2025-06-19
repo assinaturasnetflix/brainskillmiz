@@ -1986,7 +1986,15 @@ const updatePlatformSettings = async (req, res) => {
 // --- EXPORTAÇÕES ---
 // Todas as funções controladoras e a função de inicialização do Socket.io
 // são exportadas para serem usadas em routes.js e server.js.
+// --- EXPORTAÇÕES ---
 module.exports = {
+    // Middlewares e Socket.io
+    protect, // Verifique se esta linha está aqui
+    authorize, // Verifique se esta linha está aqui
+    initializeSocketIO,
+
+    // ... (restante das exportações)
+};
     // Middlewares e Socket.io
     protect,
     authorize,

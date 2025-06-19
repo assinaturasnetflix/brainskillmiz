@@ -37,7 +37,7 @@ const {
     updatePlatformSettings,
     getPlatformSettings
 } = require('./controllers');
-const { protect, authorize } = require('./middleware/auth'); // Middleware de autenticação e autorização
+const { protect, authorize } = require('./controllers'); // Middleware de autenticação e autorização
 // Nota: O middleware 'auth.js' não foi solicitado como um arquivo separado,
 // mas é crucial para a segurança. Vou assumir que será parte de controllers.js
 // ou que o prompt implica que ele pode ser um módulo auxiliar.
