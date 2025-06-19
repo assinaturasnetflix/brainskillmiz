@@ -11,21 +11,21 @@ const { v4: uuidv4 } = require('uuid'); // Para gerar códigos de recuperação 
 
 // --- Configurações (devem vir de variáveis de ambiente no .env) ---
 const JWT_SECRET = process.env.JWT_SECRET;
-const CLOUDINARY_CLOUD_NAME_ENV = process.env.CLOUDINARY_CLOUD_NAME; // AGORA LÊ CLOUDINARY_CLOUD_NAME do .env
+const CLOUDINARY_NAME = process.env.CLOUDINARY_NAME; // AGORA LÊ CLOUDINARY_CLOUD_NAME do .env
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
 // Validação de variáveis de ambiente
-if (!JWT_SECRET || !CLOUDINARY_CLOUD_NAME_ENV || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !EMAIL_USER || !EMAIL_PASS) {
+if (!JWT_SECRET || !CLOUDINARY_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !EMAIL_USER || !EMAIL_PASS) {
     console.error("ERRO: Variáveis de ambiente essenciais não definidas. Verifique seu arquivo .env.");
     process.exit(1);
 }
 
 // Configuração do Cloudinary
 cloudinary.config({
-    cloud_name: CLOUDINARY_CLOUD_NAME_ENV,
+    cloud_name: CLOUDINARY_NAME,
     api_key: CLOUDINARY_API_KEY,
     api_secret: CLOUDINARY_API_SECRET
 });
@@ -1767,7 +1767,3 @@ module.exports = {
     updatePlatformSettings,
     getPlatformSettings,
 };
-}
-
----
-
