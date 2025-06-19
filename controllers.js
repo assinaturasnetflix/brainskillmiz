@@ -1982,19 +1982,8 @@ const updatePlatformSettings = async (req, res) => {
     }
 };
 
-
-// --- EXPORTAÇÕES ---
-// Todas as funções controladoras e a função de inicialização do Socket.io
-// são exportadas para serem usadas em routes.js e server.js.
 // --- EXPORTAÇÕES ---
 module.exports = {
-    // Middlewares e Socket.io
-    protect, // Verifique se esta linha está aqui
-    authorize, // Verifique se esta linha está aqui
-    initializeSocketIO,
-
-    // ... (restante das exportações)
-};
     // Middlewares e Socket.io
     protect,
     authorize,
@@ -2039,10 +2028,5 @@ module.exports = {
     getPlatformFinancialSummary,
     updatePlatformSettings,
     getPlatformSettings,
-};
-
-// Instruções básicas para rodar localmente:
-// Este é o arquivo principal de lógica do backend.
-// Ele interage com os modelos do MongoDB (models.js) e é chamado pelas rotas (routes.js).
-// Certifique-se de que as variáveis de ambiente necessárias (JWT_SECRET, Cloudinary, Email)
-// estejam configuradas no seu arquivo .env, conforme mencionado em server.js.
+}; // This is the closing brace for module.exports
+// There should be NOTHING after this closing brace and semicolon, except possibly blank lines.
