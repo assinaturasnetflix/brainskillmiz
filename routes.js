@@ -1,107 +1,65 @@
 // routes.js
-// Este arquivo define todas as rotas da API REST para o projeto BrainSkill.
 
 const express = require('express');
-const {
-    registerUser,
-    loginUser,
-    forgotPassword,
-    resetPassword,
-    getUserProfile,
-    updateUserProfile,
-    uploadAvatar,
-    requestDeposit,
-    requestWithdrawal,
-    getGameHistory,
-    getRanking,
-    createLobby,
-    joinLobby,
-    cancelLobby, // Adicionado para permitir o criador cancelar o lobby
-    getLobbies,
-    // Admin functions
-    adminLogin,
-    getAllUsers,
-    blockUser,
-    unblockUser,
-    getPendingDeposits,
-    approveDeposit,
-    rejectDeposit,
-    getPendingWithdrawals,
-    approveWithdrawal,
-    rejectWithdrawal,
-    addBalance,
-    removeBalance,
-    getLiveGames,
-    getCompletedGames,
-    getPlatformFinancialSummary,
-    updatePlatformSettings,
-    getPlatformSettings
-} = require('./controllers');
-const { protect, authorize } = require('./controllers'); // Middleware de autenticação e autorização
-// Nota: O middleware 'auth.js' não foi solicitado como um arquivo separado,
-// mas é crucial para a segurança. Vou assumir que será parte de controllers.js
-// ou que o prompt implica que ele pode ser um módulo auxiliar.
-// Para aderir estritamente ao prompt de 4 arquivos, vou colocá-lo dentro de controllers.js.
+const router = express.Router();
+const controllers = require('./controllers');
+const { protect, authorize } = require('./controllers'); // Assumindo que protect e authorize estão em controllers.js
 
-module.exports = function(app) {
-    // --- Rotas de Autenticação e Usuário ---
-    app.post('/api/auth/register', registerUser);
-    app.post('/api/auth/login', loginUser);
-    app.post('/api/auth/forgot-password', forgotPassword);
-    app.post('/api/auth/reset-password', resetPassword);
+// --- Rotas de Autenticação e Usuário Geral ---
+router.post('/register', controllers.register);
+router.post('/login', controllers.login);
+router.post('/forgot-password', controllers.forgotPassword);
+router.post('/reset-password', controllers.resetPassword);
 
-    // --- Rotas de Perfil de Usuário (Protegidas) ---
-    app.get('/api/users/profile', protect, getUserProfile);
-    app.put('/api/users/profile', protect, updateUserProfile);
-    app.post('/api/users/profile/avatar', protect, uploadAvatar); // Rota para upload de avatar
-    app.get('/api/users/ranking', getRanking); // Página de ranking para ver perfis de outros jogadores
+// Rotas protegidas (requerem token JWT válido)
+router.use(protect); // Todas as rotas abaixo desta linha exigirão autenticação
 
-    // --- Rotas de Saldo (Protegidas) ---
-    app.post('/api/transactions/deposit', protect, requestDeposit);
-    app.post('/api/transactions/withdrawal', protect, requestWithdrawal);
-    app.get('/api/users/balance', protect, getUserProfile); // Reusa getUserProfile para obter saldo
+router.get('/profile', controllers.getProfile);
+router.put('/profile', controllers.updateProfile);
+router.post('/upload-avatar', controllers.uploadAvatar);
+router.get('/ranking', controllers.getRanking); // Para ver perfis de outros jogadores
 
-    // --- Rotas de Lobby e Jogo (Protegidas) ---
-    app.post('/api/lobby/create', protect, createLobby);
-    app.post('/api/lobby/:lobbyId/join', protect, joinLobby);
-    app.delete('/api/lobby/:lobbyId', protect, cancelLobby); // Rota para cancelar lobby
-    app.get('/api/lobby', getLobbies); // Rota pública para ver lobbies ativos
+// --- Rotas de Saldo e Transações ---
+router.get('/balance', controllers.getBalance);
+router.post('/deposit-request', controllers.requestDeposit);
+router.post('/withdraw-request', controllers.requestWithdrawal);
+router.get('/transactions/history', controllers.getTransactionHistory); // Para ver histórico de depósitos/levantamentos
 
-    // --- Rotas de Histórico de Jogos (Protegidas) ---
-    app.get('/api/games/history', protect, getGameHistory);
-    // Nota: Os resultados da partida são gerenciados via WebSocket e atualizados no histórico.
+// --- Rotas de Jogo e Lobby ---
+router.get('/lobby', controllers.getOpenLobbyRooms);
+router.post('/lobby/create', controllers.createLobbyRoom);
+router.post('/lobby/:roomId/join', controllers.joinLobbyRoom); // Inicia uma partida após aceitar a aposta
+router.get('/games/history', controllers.getGameHistory); // Histórico de partidas jogadas pelo usuário
+router.get('/game/:gameId/result', controllers.getGameResult); // Resultado de uma partida específica
 
-    // --- Rotas de Administração (Protegidas e Autorizadas para Admin) ---
-    app.post('/api/admin/login', adminLogin);
-    app.get('/api/admin/users', protect, authorize(['admin']), getAllUsers);
-    app.put('/api/admin/users/:userId/block', protect, authorize(['admin']), blockUser);
-    app.put('/api/admin/users/:userId/unblock', protect, authorize(['admin']), unblockUser);
+// --- Rotas Administrativas (requerem role de 'admin') ---
+router.use(authorize('admin')); // Todas as rotas abaixo desta linha exigirão role de admin
 
-    app.get('/api/admin/deposits/pending', protect, authorize(['admin']), getPendingDeposits);
-    app.put('/api/admin/deposits/:depositId/approve', protect, authorize(['admin']), approveDeposit);
-    app.put('/api/admin/deposits/:depositId/reject', protect, authorize(['admin']), rejectDeposit);
+router.get('/admin/users', controllers.adminGetAllUsers);
+router.put('/admin/users/:userId/block', controllers.adminBlockUser);
+router.put('/admin/users/:userId/unblock', controllers.adminUnblockUser);
+router.put('/admin/users/:userId/balance', controllers.adminUpdateUserBalance); // Adicionar/remover saldo manualmente
 
-    app.get('/api/admin/withdrawals/pending', protect, authorize(['admin']), getPendingWithdrawals);
-    app.put('/api/admin/withdrawals/:withdrawalId/approve', protect, authorize(['admin']), approveWithdrawal);
-    app.put('/api/admin/withdrawals/:withdrawalId/reject', protect, authorize(['admin']), rejectWithdrawal);
+router.get('/admin/deposits', controllers.adminGetDepositRequests);
+router.put('/admin/deposits/:depositId/approve', controllers.adminApproveDeposit);
+router.put('/admin/deposits/:depositId/reject', controllers.adminRejectDeposit);
 
-    app.post('/api/admin/users/:userId/add-balance', protect, authorize(['admin']), addBalance);
-    app.post('/api/admin/users/:userId/remove-balance', protect, authorize(['admin']), removeBalance);
+router.get('/admin/withdrawals', controllers.adminGetWithdrawalRequests);
+router.put('/admin/withdrawals/:withdrawalId/approve', controllers.adminApproveWithdrawal);
+router.put('/admin/withdrawals/:withdrawalId/reject', controllers.adminRejectWithdrawal);
 
-    app.get('/api/admin/games/live', protect, authorize(['admin']), getLiveGames);
-    app.get('/api/admin/games/completed', protect, authorize(['admin']), getCompletedGames);
+router.get('/admin/games', controllers.adminGetAllGames); // Ver partidas ao vivo ou encerradas
+router.get('/admin/stats', controllers.adminGetPlatformStats); // Total depositado, levantado, ganho, comissão
 
-    app.get('/api/admin/summary', protect, authorize(['admin']), getPlatformFinancialSummary);
+router.post('/admin/settings', controllers.adminUpdateSetting); // Definir limites, regras, textos
+router.get('/admin/settings', controllers.adminGetSettings);
 
-    app.get('/api/admin/settings', protect, authorize(['admin']), getPlatformSettings);
-    app.put('/api/admin/settings', protect, authorize(['admin']), updatePlatformSettings);
+module.exports = router;
 
-    // Nota: A lógica de validação de jogadas e atualização do estado do jogo
-    // ocorrerá primariamente via Socket.io no controllers.js, não via rotas REST diretas.
-};
+/*
+Para executar este arquivo localmente:
 
-// Instruções básicas para rodar localmente:
-// 1. Este arquivo será importado em server.js.
-// 2. Ele define as rotas da API, direcionando as requisições para as funções controladoras apropriadas.
-// 3. Os middlewares 'protect' e 'authorize' são usados para segurança e controle de acesso.
-//    Eles serão definidos dentro do arquivo controllers.js para cumprir a restrição de 4 arquivos.
+Este arquivo é um módulo que define as rotas da API e será importado e usado por `server.js`.
+Não há necessidade de executá-lo diretamente.
+Certifique-se de que `controllers.js` esteja no mesmo nível de diretório para que as importações funcionem corretamente.
+*/
