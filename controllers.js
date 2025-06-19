@@ -18,7 +18,7 @@ const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS; // Senha de aplicativo do Google/Outlook
 
 // Validação de variáveis de ambiente
-if (!JWT_SECRET || !CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !EMAIL_USER || !EMAIL_PASS) {
+if (!JWT_SECRET || !CLOUDINARY_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !EMAIL_USER || !EMAIL_PASS) {
     console.error("ERRO: Variáveis de ambiente essenciais não definidas. Verifique seu arquivo .env.");
     process.exit(1); // Encerra o aplicativo se as configurações essenciais estiverem faltando
 }
