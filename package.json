@@ -1,7 +1,3 @@
-O erro indica que há caracteres inválidos no package.json. Vou criar um package.json limpo sem formatação markdown:
-
-**package.json**
-```json
 {
   "name": "damas-brasileiras-pvp",
   "version": "1.0.0",
@@ -35,23 +31,3 @@ O erro indica que há caracteres inválidos no package.json. Vou criar um packag
     "node": ">=14.0.0"
   }
 }
-```
-
-**Instruções para corrigir:**
-
-1. **Apague completamente** o arquivo package.json atual
-2. **Crie um novo** arquivo package.json 
-3. **Copie exatamente** o conteúdo JSON acima (sem as marcações ```json)
-4. **Salve** o arquivo
-5. **Certifique-se** de que não há caracteres especiais ou formatação markdown
-
-**Estrutura de pastas necessária:**
-```
-projeto/
-├── package.json
-├── server.js
-└── public/
-    └── index.html
-```
-
-O erro aconteceu porque o package.json continha caracteres de formatação markdown (backticks `) que não são válidos em JSON. O arquivo deve conter apenas JSON puro.
