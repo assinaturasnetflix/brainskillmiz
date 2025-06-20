@@ -1,4 +1,6 @@
-`package.json`
+O erro indica que há caracteres inválidos no package.json. Vou criar um package.json limpo sem formatação markdown:
+
+**package.json**
 ```json
 {
   "name": "damas-brasileiras-pvp",
@@ -8,7 +10,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "install-deps": "npm install"
+    "build": "echo 'No build step required'"
   },
   "keywords": [
     "damas",
@@ -20,7 +22,7 @@
     "socket.io",
     "multiplayer"
   ],
-  "author": "BLACKBOXAI",
+  "author": "Developer",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
@@ -30,17 +32,26 @@
     "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": ">=14.0.0",
-    "npm": ">=6.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/seu-usuario/damas-brasileiras-pvp.git"
-  },
-  "bugs": {
-    "url": "https://github.com/seu-usuario/damas-brasileiras-pvp/issues"
-  },
-  "homepage": "https://github.com/seu-usuario/damas-brasileiras-pvp#readme"
+    "node": ">=14.0.0"
+  }
 }
-
 ```
+
+**Instruções para corrigir:**
+
+1. **Apague completamente** o arquivo package.json atual
+2. **Crie um novo** arquivo package.json 
+3. **Copie exatamente** o conteúdo JSON acima (sem as marcações ```json)
+4. **Salve** o arquivo
+5. **Certifique-se** de que não há caracteres especiais ou formatação markdown
+
+**Estrutura de pastas necessária:**
+```
+projeto/
+├── package.json
+├── server.js
+└── public/
+    └── index.html
+```
+
+O erro aconteceu porque o package.json continha caracteres de formatação markdown (backticks `) que não são válidos em JSON. O arquivo deve conter apenas JSON puro.
