@@ -1,5 +1,3 @@
-`server.js`
-```js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -572,44 +570,4 @@ io.on('connection', (socket) => {
         console.log('Jogador desconectado:', socket.id);
         
         // Remover da fila de espera
-        const waitingIndex = waitingPlayers.findIndex(p => p.id === socket.id);
-        if (waitingIndex !== -1) {
-            waitingPlayers.splice(waitingIndex, 1);
-        }
-        
-        // Verificar jogos ativos
-        for (const [gameId, game] of games.entries()) {
-            const playerIndex = game.players.findIndex(p => p.id === socket.id);
-            if (playerIndex !== -1) {
-                game.disconnectPlayer(socket.id);
-                
-                // Notificar o outro jogador
-                socket.to(gameId).emit('playerDisconnected', {
-                    disconnectedPlayer: playerIndex,
-                    winner: game.winner
-                });
-                
-                // Se ambos desconectaram, remover o jogo
-                if (game.players.every(p => !p.connected)) {
-                    games.delete(gameId);
-                }
-                
-                break;
-            }
-        }
-    });
-});
-
-// Rota para servir o jogo
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Iniciar servidor
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🎮 Servidor de Damas Brasileiras rodando na porta ${PORT}`);
-    console.log(`📱 Acesse: http://localhost:${PORT}`);
-});
-
-```
+        const waitingIndex = waitingPlayers.findIndex(p =>```
